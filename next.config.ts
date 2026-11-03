@@ -1,10 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
-  cacheComponents: true,
-  partialPrefetching: true,
+  output: "standalone",
   reactCompiler: true,
+  // Native / server-only packages stay out of the bundle.
+  serverExternalPackages: ["sharp", "pg"],
   turbopack: {
     rules: {
       "*.css": {

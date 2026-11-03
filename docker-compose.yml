@@ -1,0 +1,40 @@
+# Local dev:   docker compose up -d db        (then `npm run dev`)
+# Production:  docker compose up -d --build   (app + db; see README "Deploy")
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: linkee
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-linkee}
+      POSTGRES_DB: linkee
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U linkee -d linkee"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  app:
+    build: .
+    restart: unless-stopped
+    profiles: ["app"]
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://linkee:${POSTGRES_PASSWORD:-linkee}@db:5432/linkee
+      MEDIA_DIR: /data/media
+      AUTH_TRUST_HOST: "true"
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    volumes:
+      - media:/data/media
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  media:
