@@ -29,6 +29,14 @@ export class MetaApiError extends Error {
     if (this.status === 0 || this.status >= 500) return true;
     return [1, 2, 4, 17, 32, 341, 613].includes(this.code ?? -1);
   }
+
+  /**
+   * Throttled before any work was done, so even a non-idempotent POST (publish, reply) is
+   * safe to repeat. 5xx/network/code 1–2 are NOT: the object may already exist on Meta.
+   */
+  get isRateLimited(): boolean {
+    return [4, 17, 32, 341, 613].includes(this.code ?? -1);
+  }
 }
 
 interface MetaRequestOptions {

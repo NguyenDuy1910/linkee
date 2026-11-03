@@ -3,7 +3,7 @@
 import { CircleCheck, CircleExclamation, TriangleExclamation } from "@gravity-ui/icons";
 import { Alert, Button, Card, Description, Label, TextArea, TextField, toast } from "@heroui/react";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { publishPostAction, saveDraftAction } from "@/app/dashboard/publish/actions";
 import type { MediaDTO } from "@/lib/media";
 import type { DraftDTO, PublishAccountDTO } from "@/lib/publishing";
@@ -22,6 +22,7 @@ import {
 import { DestinationPicker } from "./destination-picker";
 import { MediaTray, type MediaItem } from "./media-tray";
 import { PostPreview } from "./post-preview";
+import { DRAFT_DELETED_EVENT } from "./history-actions";
 import { ProviderIcon } from "./provider-icon";
 
 async function uploadFile(file: File): Promise<MediaDTO> {
@@ -70,6 +71,15 @@ export function Composer({
   const [serverError, setServerError] = useState<string | null>(null);
   const [isSaving, startSaving] = useTransition();
   const [isPublishing, startPublishing] = useTransition();
+
+  // A deleted draft can't be saved or published again; keep the content as a new post instead.
+  useEffect(() => {
+    function onDraftDeleted(event: Event) {
+      if ((event as CustomEvent<string>).detail === postId) setPostId(undefined);
+    }
+    window.addEventListener(DRAFT_DELETED_EVENT, onDraftDeleted);
+    return () => window.removeEventListener(DRAFT_DELETED_EVENT, onDraftDeleted);
+  }, [postId]);
 
   const readyMedia = items.flatMap((i) => (i.status === "ready" ? [i.media] : []));
   const isUploading = items.some((i) => i.status === "uploading");

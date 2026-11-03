@@ -15,12 +15,12 @@ RUN npm ci
 
 FROM deps AS builder
 COPY . .
-# Build-time placeholders only; real values come from the runtime environment.
-ENV DATABASE_URL="postgresql://build:build@localhost:5432/build" \
-    AUTH_SECRET="build-time-placeholder-secret" \
+# Placeholders only so env validation passes while prerendering; real values are runtime env.
+RUN DATABASE_URL="postgresql://build:build@localhost:5432/build" \
+    AUTH_SECRET="build-time-placeholder-not-a-secret" \
     TOKEN_ENCRYPTION_KEY="AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=" \
-    WORKER_ENABLED="false"
-RUN npm run build
+    WORKER_ENABLED="false" \
+    npm run build
 
 FROM base AS runner
 ENV NODE_ENV=production PORT=3000 HOSTNAME=0.0.0.0 MEDIA_DIR=/data/media

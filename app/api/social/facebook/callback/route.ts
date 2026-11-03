@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { encryptSecret, verifyState } from "@/lib/crypto";
+import { encryptSecret, signNotice, verifyState } from "@/lib/crypto";
 import { db } from "@/lib/db";
 import { env, isFacebookConfigured } from "@/lib/env";
 import { getCurrentUser } from "@/lib/session";
@@ -20,7 +20,7 @@ function settingsRedirect(params: Record<string, string>) {
 }
 
 function fail(code: string, message: string) {
-  return settingsRedirect({ error: code, message });
+  return settingsRedirect({ error: code, message, sig: signNotice(message) });
 }
 
 /** OAuth redirect target for Facebook Login for Pages. Connects every shared Page. Never logs tokens. */
@@ -30,16 +30,17 @@ export async function GET(request: NextRequest) {
   if (!isFacebookConfigured()) return settingsRedirect({ error: "facebook_not_configured" });
 
   const params = request.nextUrl.searchParams;
+  const providerError = params.get("error");
+  // Cancelling changes nothing, so report it even if Meta dropped the state parameter.
+  if (providerError === "access_denied" || params.get("error_reason") === "user_denied") {
+    return fail("access_denied", "Facebook connection was cancelled. Nothing was connected.");
+  }
+
   const state = verifyState(params.get("state"), "facebook");
   if (!state || state.userId !== user.id) {
     return fail("invalid_state", "This connection link expired or was started from another session. Please try connecting again.");
   }
-
-  const providerError = params.get("error");
   if (providerError) {
-    if (providerError === "access_denied" || params.get("error_reason") === "user_denied") {
-      return fail("access_denied", "Facebook connection was cancelled. Nothing was connected.");
-    }
     return fail("facebook_error", params.get("error_description") || `Facebook returned an error: ${providerError}`);
   }
   const code = params.get("code");

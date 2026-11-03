@@ -6,6 +6,9 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import { deleteDraftAction, retryTargetAction } from "@/app/dashboard/publish/actions";
 
+/** Fired after a draft is deleted so an open composer drops its stale post id. */
+export const DRAFT_DELETED_EVENT = "linkee:draft-deleted";
+
 export function RetryTargetButton({ targetId, accountName }: { targetId: string; accountName: string }) {
   const [isPending, startTransition] = useTransition();
   return (
@@ -65,6 +68,7 @@ export function DeleteDraftButton({ postId }: { postId: string }) {
                     }
                     setIsOpen(false);
                     toast.success("Draft deleted");
+                    window.dispatchEvent(new CustomEvent(DRAFT_DELETED_EVENT, { detail: postId }));
                     // Leave the editor if this draft was open in it.
                     if (new URLSearchParams(window.location.search).get("edit") === postId) {
                       router.replace("/dashboard/publish", { scroll: false });

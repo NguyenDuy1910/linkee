@@ -26,7 +26,7 @@ import {
   publishContainer,
 } from "@/lib/social/instagram-publish";
 import { describeMetaError, MetaApiError } from "@/lib/social/meta";
-import { getAccessToken, noteProviderError, ReconnectRequiredError } from "@/lib/social/tokens";
+import { getAccessToken, noteProviderError } from "@/lib/social/tokens";
 
 /**
  * Post to All.
@@ -481,8 +481,8 @@ async function publishInstagram(
 
 async function handlePublishFailure(target: PostTarget, account: SocialAccount, err: unknown, job: Job): Promise<void> {
   if (await noteProviderError(account.id, err)) {
-    const reason = err instanceof ReconnectRequiredError ? err.message : describeMetaError(err);
-    await failTarget(target.id, `Reconnect ${target.accountName} in Settings, then retry. ${reason}`);
+    const reason = err instanceof Error ? err.message : String(err);
+    await failTarget(target.id, `Reconnect ${target.accountName} in Settings, then retry. (${reason})`);
     return;
   }
   if (!(err instanceof MetaApiError)) {
@@ -490,8 +490,9 @@ async function handlePublishFailure(target: PostTarget, account: SocialAccount, 
     await failTarget(target.id, "Something went wrong while publishing. Please retry.");
     return;
   }
-  if (target.provider === "FACEBOOK" && err.status === 0) {
-    // Timed out or connection dropped: Facebook may have created the post anyway.
+  if (target.provider === "FACEBOOK" && err.isTransient && !err.isRateLimited) {
+    // Network drop, timeout, 5xx or code 1/2: Facebook may have created the post anyway and
+    // keeps no container we could check, so never repeat it automatically.
     await failTarget(
       target.id,
       `We couldn't confirm whether this post reached Facebook (${err.message}). Check your Page before retrying.`,

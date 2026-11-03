@@ -60,6 +60,15 @@ export function safeEqual(a: string, b: string): boolean {
   return ab.length === bb.length && timingSafeEqual(ab, bb);
 }
 
+/** HMAC tag for short UI messages passed through redirect URLs, so links can't spoof them. */
+export function signNotice(message: string): string {
+  return createHmac("sha256", env().AUTH_SECRET).update(`notice:${message}`).digest("base64url").slice(0, 22);
+}
+
+export function verifyNotice(message: string | undefined, sig: string | undefined): boolean {
+  return Boolean(message && sig && safeEqual(sig, signNotice(message)));
+}
+
 export function sha256(input: string): string {
   return createHash("sha256").update(input).digest("hex");
 }

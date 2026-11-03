@@ -74,10 +74,17 @@ export async function handleRefreshInstagramTokens(): Promise<void> {
     where: { provider: "INSTAGRAM", status: "ACTIVE", tokenExpiresAt: { lt: soon } },
   });
   for (const account of accounts) {
+    if (account.tokenExpiresAt && account.tokenExpiresAt.getTime() <= Date.now()) {
+      await markNeedsReconnect(account.id, "Access token expired. Reconnect to continue.");
+      continue;
+    }
+    if (!shouldRefreshInstagram(account)) continue;
     try {
-      await getAccessToken(account);
+      await refreshInstagramToken(account.id, decryptSecret(account.accessTokenEnc));
     } catch (err) {
+      // Unlike getAccessToken, surface dead tokens here so Settings shows Reconnect early.
       if (err instanceof MetaApiError && err.isAuthError) await markNeedsReconnect(account.id, err.message);
+      else console.warn(`[tokens] Instagram refresh failed for ${account.id}: ${err instanceof Error ? err.message : err}`);
     }
   }
 }

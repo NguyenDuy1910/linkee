@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { ConnectedAccountList, type ConnectedAccountView } from "@/components/social/connected-accounts";
 import { autoReplyBlockers } from "@/lib/ai/auto-reply";
 import { getAiSettings, startOfUtcDay } from "@/lib/ai/replies";
+import { verifyNotice } from "@/lib/crypto";
 import { db } from "@/lib/db";
 import { env, isFacebookConfigured, isInstagramConfigured, isOpenRouterConfigured } from "@/lib/env";
 import { isWorkerHealthy } from "@/lib/jobs";
@@ -40,7 +41,9 @@ export default async function SettingsPage({ searchParams }: PageProps<"/dashboa
   const sp = await searchParams;
   const connected = single(sp.connected);
   const errorCode = single(sp.error);
-  const errorMessage = single(sp.message)?.slice(0, 500);
+  // Only messages signed by our OAuth routes are shown; arbitrary `?message=` text is ignored.
+  const rawMessage = single(sp.message)?.slice(0, 500);
+  const errorMessage = verifyNotice(rawMessage, single(sp.sig)) ? rawMessage : undefined;
 
   const now = new Date();
   const since30 = new Date(now.getTime() - 30 * 86_400_000);

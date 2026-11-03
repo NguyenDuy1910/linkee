@@ -10,7 +10,8 @@ import { getAccessToken, noteProviderError, ReconnectRequiredError } from "@/lib
 const SYNC_THROTTLE_MS = 60_000;
 const SYNC_MEDIA_LIMIT = 10;
 const SYNC_COMMENTS_PER_MEDIA = 50;
-const REPLY_LOCK_MS = 2 * 60_000;
+/** Longer than the job worker's stale-lock recovery (10 min) so a crashed send is never repeated early. */
+const REPLY_LOCK_MS = 15 * 60_000;
 export const REPLY_MAX_CHARS = 1000;
 
 export type SyncResult =
@@ -152,9 +153,10 @@ export async function sendReply(opts: { userId: string; commentId: string; text:
     remoteId = (await replyToComment(comment.igCommentId, text, token)).id;
   } catch (err) {
     const needsReconnect = await noteProviderError(account.id, err);
-    const timedOut = err instanceof MetaApiError && err.status === 0 && /timed out/i.test(err.message);
-    const error = timedOut
-      ? "Instagram didn't confirm the reply in time. Check the post before trying again."
+    // Network drop, timeout, 5xx or code 1/2 after the POST: the reply may already be live.
+    const unconfirmed = err instanceof MetaApiError && err.isTransient && !err.isRateLimited;
+    const error = unconfirmed
+      ? "Instagram didn't confirm the reply. Check the post before trying again."
       : err instanceof ReconnectRequiredError
         ? err.message
         : describeMetaError(err);
@@ -163,7 +165,8 @@ export async function sendReply(opts: { userId: string; commentId: string; text:
       db.instagramComment.update({ where: { id: comment.id }, data: { replyLockedAt: null } }),
     ]);
     console.warn(`[instagram] reply failed for comment ${comment.id}: ${err instanceof Error ? err.message : err}`);
-    const transient = err instanceof MetaApiError && err.isTransient && !timedOut && !needsReconnect;
+    // Only throttling guarantees nothing was posted, so only that is retried automatically.
+    const transient = err instanceof MetaApiError && err.isRateLimited && !needsReconnect;
     return { ok: false, error, needsReconnect, transient };
   }
 

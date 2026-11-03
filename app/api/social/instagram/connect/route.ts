@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { signState } from "@/lib/crypto";
+import { signNotice, signState } from "@/lib/crypto";
 import { db } from "@/lib/db";
 import { env, isInstagramConfigured } from "@/lib/env";
 import { getCurrentUser } from "@/lib/session";
@@ -22,9 +22,11 @@ export async function GET() {
   const mayBeReconnect = accounts.some((a) => a.provider === "INSTAGRAM");
   if (!mayBeReconnect && accounts.length >= user.entitlements.maxSocialAccounts) {
     const message = `Your ${user.entitlements.label} plan allows ${user.entitlements.maxSocialAccounts} connected accounts. Disconnect one to add another.`;
-    return NextResponse.redirect(
-      new URL(`/dashboard/settings?error=account_limit&message=${encodeURIComponent(message)}`, base),
-    );
+    const url = new URL("/dashboard/settings", base);
+    url.searchParams.set("error", "account_limit");
+    url.searchParams.set("message", message);
+    url.searchParams.set("sig", signNotice(message));
+    return NextResponse.redirect(url);
   }
 
   return NextResponse.redirect(instagramAuthorizeUrl(signState({ userId: user.id, provider: "instagram" })));
