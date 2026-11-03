@@ -1,5 +1,7 @@
-# Local dev:   docker compose up -d db        (then `npm run dev`)
-# Production:  docker compose up -d --build   (app + db; see README "Deploy")
+# Local dev:   docker compose up -d db                       (then `npm run dev`)
+# Production:  docker compose --profile app run --rm migrate  (apply migrations)
+#              docker compose --profile app up -d --build     (app + db)
+# See README.md → "Deploy with Docker".
 services:
   db:
     image: postgres:16-alpine
@@ -9,7 +11,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-linkee}
       POSTGRES_DB: linkee
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -17,6 +19,18 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+
+  migrate:
+    build:
+      context: .
+      target: builder
+    profiles: ["app"]
+    environment:
+      DATABASE_URL: postgresql://linkee:${POSTGRES_PASSWORD:-linkee}@db:5432/linkee
+    command: ["npx", "prisma", "migrate", "deploy"]
+    depends_on:
+      db:
+        condition: service_healthy
 
   app:
     build: .
