@@ -64,7 +64,8 @@ lib/ai/{openrouter,replies}.ts
 prisma/schema.prisma + migrations/
 scripts/set-plan.ts       operator utility
 tests/                    vitest unit + fixture tests
-Dockerfile, docker-compose.yml, .env.example, README.md
+Dockerfile, docker-entrypoint.sh, .github/workflows/release.yml, docker-compose.yml (dev DB), .env.example, README.md
+homelab repo: stacks/linkee (app), stacks/postgres (database `linkee` via postgres-init), env.yaml
 ```
 
 ## Phase order
@@ -76,3 +77,11 @@ Dockerfile, docker-compose.yml, .env.example, README.md
 3. OpenRouter replies: settings, suggestions (cached), usage + quotas, guarded auto-reply.
 4. Post to All: uploads, composer, per-destination validation, worker publishing, retry.
 5. Production finish: gating, polish, security review, docs, Docker, smoke tests.
+
+
+## Deployment
+
+Production runs on the homelab (see its README): image `ghcr.io/nguyenduy1910/linkee`
+built by `release.yml`, pinned by homelab `bump-image`, Traefik + Cloudflare Tunnel at
+`https://linkee.<BASE_DOMAIN>` (public subdomain). Database `linkee` on the shared
+`homelab-postgres`; migrations run at container start.
