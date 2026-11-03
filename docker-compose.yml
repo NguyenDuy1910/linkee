@@ -1,14 +1,14 @@
-# Local dev:   docker compose up -d db                       (then `npm run dev`)
-# Production:  docker compose --profile app run --rm migrate  (apply migrations)
-#              docker compose --profile app up -d --build     (app + db)
-# See README.md → "Deploy with Docker".
+# Local development database only:  docker compose up -d db   (then `npm run dev`)
+# Production runs on the homelab: stacks/linkee (app) + the shared stacks/postgres
+# (database `linkee`). See README.md → "Deploy (homelab)".
 services:
   db:
+    # Matches the existing local volume (initialized with 16); production is PG 17.
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
       POSTGRES_USER: linkee
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-linkee}
+      POSTGRES_PASSWORD: linkee
       POSTGRES_DB: linkee
     ports:
       - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
@@ -20,35 +20,5 @@ services:
       timeout: 3s
       retries: 10
 
-  migrate:
-    build:
-      context: .
-      target: builder
-    profiles: ["app"]
-    environment:
-      DATABASE_URL: postgresql://linkee:${POSTGRES_PASSWORD:-linkee}@db:5432/linkee
-    command: ["npx", "prisma", "migrate", "deploy"]
-    depends_on:
-      db:
-        condition: service_healthy
-
-  app:
-    build: .
-    restart: unless-stopped
-    profiles: ["app"]
-    env_file: .env
-    environment:
-      DATABASE_URL: postgresql://linkee:${POSTGRES_PASSWORD:-linkee}@db:5432/linkee
-      MEDIA_DIR: /data/media
-      AUTH_TRUST_HOST: "true"
-    ports:
-      - "${APP_PORT:-3000}:3000"
-    volumes:
-      - media:/data/media
-    depends_on:
-      db:
-        condition: service_healthy
-
 volumes:
   pgdata:
-  media:

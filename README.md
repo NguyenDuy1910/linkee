@@ -159,25 +159,45 @@ several instances are safe; crashed jobs are re-queued after 10 minutes; retries
 exponential backoff with a max attempt count. Daily maintenance: Instagram token refresh,
 orphaned upload cleanup (24 h), and pruning finished jobs (14 days).
 
-## Deploy with Docker
+## Deploy (homelab)
+
+Production env, database and the stack live in the **homelab** repo, not here:
+
+| Piece | Where |
+| --- | --- |
+| App stack (Traefik route `https://linkee.<BASE_DOMAIN>`, media volume `linkee-media`) | `homelab/stacks/linkee/compose.yaml` |
+| Database `linkee` + login role `linkee` on the shared `homelab-postgres` | `homelab/stacks/postgres` (`PROJECT_DATABASES`, `postgres-init`) |
+| Secrets (`AUTH_SECRET`, `TOKEN_ENCRYPTION_KEY`, `LINKEE_DB_PASSWORD`, Meta, OpenRouter) | `homelab/env.yaml` → sections `stacks/linkee`, `stacks/postgres` |
+| Public access (no Cloudflare Access login; Meta must reach `/media` and webhooks) | `homelab/infra/cloudflare/terraform.tfvars` → `public_subdomains` |
+
+Flow: push to `main` here → `.github/workflows/release.yml` runs lint/typecheck/tests,
+pushes `ghcr.io/nguyenduy1910/linkee:sha-<7>`, and dispatches `bump-image` to the homelab
+repo, which pins the tag in `stacks/linkee/compose.yaml` and deploys. The container applies
+pending Prisma migrations on start (`docker-entrypoint.sh`), then serves on port 3000 behind
+Traefik; the job worker runs in the same process.
+
+One-time: add repo secret `HOMELAB_DISPATCH_TOKEN` (fine-grained, Contents read/write on
+the homelab repo). If the GHCR package is private, the server needs `GHCR_USER`/`GHCR_TOKEN`
+(see homelab `docs/setup.md`).
+
+`docker-compose.yml` in this repo is a **local development database only**.
+
+Grant Pro in production (no tsx in the image), on the server:
 
 ```bash
-cp .env.example .env              # set APP_URL to your public https origin + secrets
-docker compose --profile app run --rm migrate     # apply migrations
-docker compose --profile app up -d --build        # app (port APP_PORT) + db
+docker exec homelab-postgres psql -U <POSTGRES_USER> -d linkee \
+  -c "UPDATE \"User\" SET plan = 'PRO' WHERE email = 'you@example.com'"
 ```
-
-Put a TLS-terminating reverse proxy (Caddy, nginx, a cloud load balancer) in front of port
-3000. The `app` container runs as a non-root user; uploads live in the `media` volume.
 
 ### Backups and scaling
 
-- Back up **both** the `pgdata` volume (e.g. nightly `pg_dump`) and the `media` volume
-  (uploaded files are not in the database).
+- `homelab-postgres-backup` dumps the `linkee` database nightly and `core/backup` ships
+  dumps plus the `linkee-media` volume to R2 (uploaded files are not in the database).
 - Keep `TOKEN_ENCRYPTION_KEY` safe and stable: losing or changing it makes stored provider
   tokens unreadable (users would have to reconnect).
 - Media on local disk makes this a **single-host** deployment. Running multiple app hosts
   requires shared storage for `MEDIA_DIR`; the job worker itself is multi-instance safe.
+- Cloudflare's free plan rejects request bodies over 100 MB, which matches the video upload cap.
 
 ## Security notes
 
