@@ -1,0 +1,5 @@
+# Only ux-preview.html, styles/ and scripts/ ship in the image.
+*.md
+Dockerfile
+.dockerignore
+scripts/build-assets.mjs

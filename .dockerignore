@@ -9,3 +9,4 @@ lib/generated
 .heroui-docs
 coverage
 *.log
+ux_preview

@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="light" />
+    <title>Linkee — UX preview</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400..700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <!-- HeroUI v3 component CSS (generated from @heroui/styles by scripts/build-assets.mjs) -->
+    <link rel="stylesheet" href="styles/heroui.css" />
+    <!-- Linkee brand tokens + product layouts -->
+    <link rel="stylesheet" href="styles/app.css" />
+  </head>
+  <body>
+    <a class="lk-skip button button--primary button--sm" href="#main">Skip to content</a>
+    <div id="app" aria-live="off"></div>
+    <div class="lk-toasts" role="region" aria-label="Notifications" aria-live="polite"></div>
+
+    <!-- Classic scripts (not modules) so the file opens straight from disk. Order matters. -->
+    <script src="scripts/icons.js"></script>
+    <script src="scripts/data.js"></script>
+    <script src="scripts/ui.js"></script>
+    <script src="scripts/mocks.js"></script>
+    <script src="scripts/views-public.js"></script>
+    <script src="scripts/views-page.js"></script>
+    <script src="scripts/views-inbox.js"></script>
+    <script src="scripts/views-post.js"></script>
+    <script src="scripts/views-settings.js"></script>
+    <!-- Prototype tooling: Action Explorer (not product UI) -->
+    <script src="scripts/tour.js"></script>
+    <script src="scripts/tour-catalog.js"></script>
+    <script src="scripts/app.js"></script>
+  </body>
+</html>

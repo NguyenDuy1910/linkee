@@ -1,0 +1,62 @@
+name: ux-preview
+
+# ux_preview/** on main → image ghcr.io/<owner>/linkee-ux-preview:sha-<7> → homelab bump-image
+# (stack linkee-preview) → deploy. Static site: no env, no app build.
+# Needs repo secret HOMELAB_DISPATCH_TOKEN (same token as release.yml).
+on:
+  push:
+    branches: [main]
+    paths:
+      - "ux_preview/**"
+      - ".github/workflows/ux-preview.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: ux-preview
+  cancel-in-progress: true
+
+jobs:
+  image:
+    runs-on: ubuntu-24.04
+    outputs:
+      image: ${{ steps.ref.outputs.image }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Scripts parse
+        run: for f in ux_preview/scripts/*.js; do node --check "$f"; done
+      - name: Image reference
+        id: ref
+        run: |
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          echo "image=ghcr.io/${owner}/linkee-ux-preview:sha-${GITHUB_SHA::7}" >>"$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v7
+        with:
+          context: ux_preview
+          push: true
+          tags: ${{ steps.ref.outputs.image }}
+          labels: org.opencontainers.image.source=https://github.com/${{ github.repository }}
+          cache-from: type=gha,scope=ux-preview
+          cache-to: type=gha,mode=max,scope=ux-preview
+
+  deploy:
+    needs: image
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Deploy to homelab
+        env:
+          GH_TOKEN: ${{ secrets.HOMELAB_DISPATCH_TOKEN }}
+          IMAGE: ${{ needs.image.outputs.image }}
+        run: |
+          gh api repos/NguyenDuy1910/homelab/dispatches -f event_type=bump-image \
+            -f 'client_payload[stack]=linkee-preview' -f 'client_payload[service]=linkee-preview' \
+            -f "client_payload[image]=${IMAGE}"

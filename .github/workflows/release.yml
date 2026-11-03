@@ -5,6 +5,10 @@ name: release
 on:
   push:
     branches: [main]
+    # The UX preview ships separately (ux-preview.yml); its changes don't rebuild or redeploy the app.
+    paths-ignore:
+      - "ux_preview/**"
+      - ".github/workflows/ux-preview.yml"
   workflow_dispatch:
 
 permissions:
