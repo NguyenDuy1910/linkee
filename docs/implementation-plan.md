@@ -78,7 +78,6 @@ homelab repo: stacks/linkee (app), stacks/postgres (database `linkee` via postgr
 4. Post to All: uploads, composer, per-destination validation, worker publishing, retry.
 5. Production finish: gating, polish, security review, docs, Docker, smoke tests.
 
-
 ## Deployment
 
 Production runs on the homelab (see its README): image `ghcr.io/nguyenduy1910/linkee`
