@@ -198,20 +198,22 @@
   };
 
   // ── Modal (HeroUI Modal / AlertDialog anatomy) ────────────────────────────
+  // Confirmations, outside-world handoffs, and My Page's editing sheets (cls "lk-sheet": a centered
+  // dialog on desktop, a bottom sheet on phones). `onClose` runs however it closes (button, Esc, backdrop).
   let openModal = null;
   L.closeModal = () => { if (openModal) openModal.close(true); };
-  L.modal = function ({ title, description, body = "", icon, tone = "accent", size = "sm", buttons = [], onMount, dismissable = true } = {}) {
+  L.modal = function ({ title, description, body = "", icon, tone = "accent", size = "sm", buttons = [], onMount, onClose, cls = "", closeButton = true, dismissable = true } = {}) {
     if (openModal) openModal.close(true);
     const prevFocus = document.activeElement;
     const backdrop = document.createElement("div");
-    backdrop.className = "modal__backdrop modal__backdrop--blur";
+    backdrop.className = `modal__backdrop modal__backdrop--blur ${cls ? cls.split(" ")[0] + "-backdrop" : ""}`;
     backdrop.dataset.entering = "true";
     const titleId = "m-" + L.uid();
-    backdrop.innerHTML = `<div class="modal__container" data-placement="center"><section class="modal__dialog modal__dialog--${size}" role="dialog" aria-modal="true" aria-labelledby="${titleId}" tabindex="-1">
-      ${dismissable ? `<button type="button" class="close-button close-button--default modal__close-trigger" aria-label="Close" data-modal-close>${L.icon("xmark")}</button>` : ""}
+    backdrop.innerHTML = `<div class="modal__container" data-placement="center"><section class="modal__dialog modal__dialog--${size} ${cls}" role="dialog" aria-modal="true" aria-labelledby="${titleId}" tabindex="-1">
+      ${dismissable && closeButton ? `<button type="button" class="close-button close-button--default modal__close-trigger" aria-label="Close" data-modal-close>${L.icon("xmark")}</button>` : ""}
       <header class="modal__header">${icon ? `<div class="lk-modal-icon lk-modal-icon--${tone}">${L.icon(icon, "lk-icon--lg")}</div>` : ""}<h2 class="modal__heading" id="${titleId}">${L.esc(title)}</h2>${description ? `<p class="lk-sub" style="margin:0">${description}</p>` : ""}</header>
       ${body ? `<div class="modal__body">${body}</div>` : ""}
-      ${buttons.length ? `<footer class="modal__footer">${buttons.map((b, i) => L.btn({ label: b.label, variant: b.variant || "tertiary", icon: b.icon, iconRight: b.iconRight, attrs: { "data-modal-btn": i } })).join("")}</footer>` : ""}
+      ${buttons.length ? `<footer class="modal__footer">${buttons.map((b, i) => L.btn({ label: b.label, variant: b.variant || "tertiary", icon: b.icon, iconRight: b.iconRight, cls: b.cls, attrs: { "data-modal-btn": i, ...(b.attrs || {}) } })).join("")}</footer>` : ""}
     </section></div>`;
     document.body.appendChild(backdrop);
     document.body.style.overflow = "hidden";
@@ -222,6 +224,7 @@
       close(immediate) {
         if (!backdrop.isConnected) return;
         document.removeEventListener("keydown", onKey, true);
+        onClose?.();
         const done = () => { backdrop.remove(); if (openModal === api) openModal = null; if (!openModal) document.body.style.overflow = ""; };
         if (immediate) done();
         else { backdrop.dataset.exiting = "true"; dialog.dataset.exiting = "true"; setTimeout(done, 160); }
@@ -264,7 +267,7 @@
     const pop = document.createElement("div");
     pop.className = "lk-pop dropdown__popover";
     pop.innerHTML = `${header ? `<div class="lk-pop__header">${header}</div><div class="lk-pop__sep"></div>` : ""}<div class="menu" role="menu">${items
-      .map((it, i) => (it.sep ? '<div class="lk-pop__sep" role="separator"></div>' : `<button type="button" role="menuitem" class="menu-item ${it.danger ? "menu-item--danger" : ""}" data-i="${i}" tabindex="-1">${it.icon ? L.icon(it.icon) : ""}<span data-slot="label">${L.esc(it.label)}</span>${it.hint ? `<span class="lk-kbd-hint">${L.esc(it.hint)}</span>` : ""}</button>`))
+      .map((it, i) => (it.sep ? '<div class="lk-pop__sep" role="separator"></div>' : `<button type="button" role="${it.checked != null ? "menuitemradio" : "menuitem"}" class="menu-item ${it.danger ? "menu-item--danger" : ""}" data-i="${i}" tabindex="-1" ${it.checked != null ? `aria-checked="${!!it.checked}"` : ""} ${it.disabled ? 'aria-disabled="true" data-disabled="true"' : ""}>${it.icon ? L.icon(it.icon) : ""}<span data-slot="label">${L.esc(it.label)}${it.description ? `<small class="lk-pop__desc">${L.esc(it.description)}</small>` : ""}</span>${it.hint ? `<span class="lk-kbd-hint">${L.esc(it.hint)}</span>` : ""}${it.checked ? `<span class="lk-pop__check">${L.icon("check")}</span>` : ""}</button>`))
       .join("")}</div>`;
     document.body.appendChild(pop);
     const r = trigger.getBoundingClientRect();
@@ -296,7 +299,7 @@
     };
     pop.addEventListener("click", (e) => {
       const b = e.target.closest(".menu-item");
-      if (!b) return;
+      if (!b || b.dataset.disabled) return;
       close();
       trigger.focus({ preventScroll: true });
       items[Number(b.dataset.i)].onClick?.();
@@ -316,7 +319,8 @@
   }
   L.resolveTheme = function (theme) {
     const p = L.THEMES.find((t) => t.id === theme.preset) || L.THEMES[0];
-    const base = theme.background || p.base;
+    // A gradient background reads its first stop as the base color (contrast, status bar tint).
+    const base = theme.background ? (theme.background.match(/#[0-9a-f]{6}/i) || [p.base])[0] : p.base;
     const background = theme.background || p.background;
     let text = theme.text || p.text;
     if (!theme.text && theme.background) text = hexLum(base) < 0.35 ? "#f8fafc" : "#18181b";
@@ -331,32 +335,55 @@
     const font = (L.FONTS.find((f) => f.id === theme.font) || L.FONTS[0]).stack;
     return { background, base, text, muted, radius, button, font };
   };
-  L.bioHTML = function (page, { mode = "preview", flashId } = {}) {
+  // mode: "public" (the live page) · "preview" (inside a phone frame) · "edit" (My Page canvas: the page
+  // is the editor — every part is a tap target with a pencil, and tapping opens its editing sheet).
+  L.bioHTML = function (page, { mode = "preview", flashId, canAdd = true } = {}) {
     const t = L.resolveTheme(page.theme);
     const style = `--bio-bg:${t.background};--bio-base:${t.base};--bio-text:${t.text};--bio-muted:${t.muted};--bio-radius:${t.radius};--bio-btn-bg:${t.button.bg};--bio-btn-text:${t.button.fg};--bio-btn-border:${t.button.border};--bio-font:${t.font}`;
+    const edit = mode === "edit";
+    const pen = `<span class="lk-pen" aria-hidden="true">${L.icon("pencil")}</span>`;
     const name = page.displayName.trim() || "Your name";
-    const visible = page.links.filter((l) => l.visible && l.title.trim());
-    const socials = page.socials
+    const visible = page.links.filter((l) => (edit || l.visible) && l.title.trim());
+    const socialIcons = page.socials
       .filter((s) => s.url.trim())
       .map((s) => {
         const meta = L.SOCIALS.find((x) => x.id === s.platform);
-        return `<a class="lk-bio__social" href="#" data-bio-social="${s.platform}" aria-label="${L.esc(meta.label)}">${L.icon(meta.icon)}</a>`;
+        return edit
+          ? `<span class="lk-bio__social">${L.icon(meta.icon)}</span>`
+          : `<a class="lk-bio__social" href="#" data-bio-social="${s.platform}" aria-label="${L.esc(meta.label)}">${L.icon(meta.icon)}</a>`;
       })
       .join("");
-    const links = visible.length
-      ? `<nav class="lk-bio__links" aria-label="Links">${visible.map((l) => `<a class="lk-bio__link" href="#" data-bio-link="${l.id}" ${l.id === flashId ? 'data-new="true"' : ""}>${L.esc(l.title)}</a>`).join("")}</nav>`
+    const socials = edit
+      ? socialIcons
+        ? `<button type="button" class="lk-bio__socials lk-bio__editable" data-edit="socials" aria-label="Edit social icons">${socialIcons}${pen}</button>`
+        : `<button type="button" class="lk-bio__ghost" data-edit="socials">${L.icon("plus")}Social icons</button>`
+      : socialIcons ? `<div class="lk-bio__socials">${socialIcons}</div>` : "";
+    const linkHTML = (l) => edit
+      ? `<button type="button" class="lk-bio__link lk-bio__editable" data-edit-link="${l.id}" ${l.visible ? "" : 'data-hidden="true"'} ${l.id === flashId ? 'data-new="true"' : ""} aria-label="Edit ${L.esc(l.title)}${l.visible ? "" : " (hidden)"}" aria-describedby="reorder-hint">${l.visible ? "" : `<span class="lk-bio__hidden">${L.icon("eye-slash")}<span>Hidden</span></span>`}<span>${L.esc(l.title)}</span>${pen}</button>`
+      : `<a class="lk-bio__link" href="#" data-bio-link="${l.id}" ${l.id === flashId ? 'data-new="true"' : ""}>${L.esc(l.title)}</a>`;
+    const add = edit && canAdd ? `<button type="button" class="lk-bio__add" data-edit="add">${L.icon("plus")}Add</button>` : "";
+    const links = visible.length || add
+      ? `<${edit ? "div" : "nav"} class="lk-bio__links" ${edit ? "data-links" : 'aria-label="Links"'}>${visible.map(linkHTML).join("")}${add}</${edit ? "div" : "nav"}>`
       : mode === "preview" ? '<div class="lk-bio__empty">Your links will appear here</div>' : "";
     // Inside a phone frame the page gets an iOS-style status bar that stays pinned (content scrolls under it).
     const status = mode === "preview"
       ? `<div class="lk-bio__status" aria-hidden="true"><span>9:41</span><span class="lk-bio__status-icons"><svg viewBox="0 0 18 12" width="17" height="11"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg><svg viewBox="0 0 16 12" width="15" height="11"><path d="M8 11.5 5.6 9a3.4 3.4 0 0 1 4.8 0L8 11.5Zm-4.2-4.3L2.3 5.7a8 8 0 0 1 11.4 0l-1.5 1.5a5.9 5.9 0 0 0-8.4 0ZM.4 3.9-.4 3.1a11 11 0 0 1 16.8 0l-.8.8-.7.7a9.9 9.9 0 0 0-13.8 0l-.7-.7Z"/></svg><svg viewBox="0 0 27 12" width="25" height="12"><rect x=".5" y=".5" width="22" height="11" rx="3.2" fill="none" stroke="currentColor" opacity=".4"/><rect x="2" y="2" width="16" height="8" rx="2"/><path d="M24 4v4c.8-.3 1.4-1.1 1.4-2s-.6-1.7-1.4-2Z" opacity=".45"/></svg></span></div>`
       : "";
-    return `<div class="lk-bio ${mode === "public" ? "lk-bio--page" : "lk-bio--phone"}" style="${L.esc(style)}">${status}<div class="lk-bio__inner">
-      <div class="lk-bio__avatar">${page.avatar ? `<img src="${page.avatar}" alt="">` : L.esc(L.initials(name))}</div>
-      <h1 class="lk-bio__name">${L.esc(name)}</h1>
-      ${page.bio.trim() ? `<p class="lk-bio__text">${L.esc(page.bio)}</p>` : ""}
-      ${socials ? `<div class="lk-bio__socials">${socials}</div>` : ""}
+    const face = `<span class="lk-bio__avatar">${page.avatar ? `<img src="${page.avatar}" alt="">` : L.esc(L.initials(name))}</span>`;
+    const head = edit
+      ? `<div class="lk-bio__head">
+          <button type="button" class="lk-bio__avatar-wrap" data-edit="profile" data-focus="photo" aria-label="Edit photo, name and bio">${face}${pen}</button>
+          <button type="button" class="lk-bio__name lk-bio__tap" data-edit="profile" data-focus="pf-name">${page.displayName.trim() ? L.esc(name) : '<span class="lk-bio__placeholder">Your name</span>'}</button>
+          <button type="button" class="lk-bio__text lk-bio__tap" data-edit="profile" data-focus="pf-bio">${page.bio.trim() ? L.esc(page.bio) : '<span class="lk-bio__placeholder">Add a short bio</span>'}</button></div>`
+      : `${face}<h1 class="lk-bio__name">${L.esc(name)}</h1>${page.bio.trim() ? `<p class="lk-bio__text">${L.esc(page.bio)}</p>` : ""}`;
+    // The footer doubles as the invitation: "Get yours like <name>".
+    const badgeInner = `<span class="lk-bio__badge-mark">L</span><span>Get yours like <b>${L.esc(name)}</b></span>`;
+    const badge = edit ? `<span class="lk-bio__badge">${badgeInner}</span>` : `<a class="lk-bio__badge" href="#/" data-bio-badge>${badgeInner}</a>`;
+    return `<div class="lk-bio ${mode === "public" ? "lk-bio--page" : mode === "edit" ? "lk-bio--edit" : "lk-bio--phone"}" style="${L.esc(style)}">${status}<div class="lk-bio__inner">
+      ${head}
       ${links}
-      <div class="lk-bio__foot"><a class="lk-bio__badge" href="#/" data-bio-badge><span class="lk-bio__badge-mark">L</span>${mode === "public" ? "Made with Linkee" : "Linkee"}</a></div>
+      ${socials}
+      <div class="lk-bio__foot">${badge}</div>
     </div></div>`;
   };
   L.phone = (inner, cls = "") => `<div class="lk-phone ${cls}"><div class="lk-phone__screen" data-phone-screen>${inner}</div><span class="lk-phone__home" aria-hidden="true"></span></div>`;

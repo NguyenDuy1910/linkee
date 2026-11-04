@@ -1,30 +1,23 @@
-/* Settings — one page, four sections: Account, Connections, AI replies, Plan. */
+/* Settings — one column, four short sections: Account, Connections, AI replies, Plan. */
 (function () {
   const L = window.L;
   const { esc, icon, btn } = L;
-  const SECTIONS = [
-    { id: "account", label: "Account", icon: "person" },
-    { id: "connections", label: "Connections", icon: "plug-connection" },
-    { id: "ai", label: "AI replies", icon: "sparkles" },
-    { id: "plan", label: "Plan", icon: "thunderbolt" },
-  ];
   let aiDraft = null;
   let accDraft = null;
 
-  const sectionHead = (id, title, desc) => `<div class="lk-settings__sechead"><h2 class="lk-h2" id="${id}-title">${title}</h2><p class="lk-sub" style="margin-top:2px">${desc}</p></div>`;
+  const section = (id, title, body, aside = "") => `<section id="${id}" class="lk-settings__section" aria-labelledby="${id}-title"><div class="lk-settings__sechead"><h2 class="lk-h3" id="${id}-title">${title}</h2>${aside}</div>${body}</section>`;
+  const row = (title, desc, control = "") => `<div class="lk-setrow"><div><div class="lk-setrow__title">${title}</div>${desc ? `<div class="lk-setrow__desc">${desc}</div>` : ""}</div>${control}</div>`;
 
   function accountHTML(s) {
     const live = s.user.published !== false;
-    return `<section id="account" aria-labelledby="account-title">${sectionHead("account", "Account", "Where your page lives, and who can see it.")}
-      <form class="card lk-card" data-account-form novalidate>
-        ${L.field({ id: "acc-slug", label: "Page address", value: accDraft.slug, prefix: "linkee.bio/", attrs: { autocapitalize: "none", spellcheck: "false" }, description: "Changing it breaks links you've already shared." })}
-        <div class="lk-row" style="justify-content:flex-end">${btn({ label: "Save address", variant: "primary", size: "sm", type: "submit", disabled: true, attrs: { "data-acc-save": "" } })}</div>
-      </form>
-      <div class="card lk-card lk-card--flush" style="margin-top:12px">
-        <div class="lk-setrow"><div><div class="lk-setrow__title">Page is ${live ? "public" : "hidden"}</div><div class="lk-setrow__desc">${live ? "Anyone with your link can see it." : "Visitors see “This page isn't available”. Your links and stats are kept."}</div></div>${L.switch({ id: "published", checked: live, aria: "Page is public", action: "published" })}</div>
-        <div class="lk-setrow"><div><div class="lk-setrow__title">Email</div><div class="lk-setrow__desc">${esc(s.user.email)} · used to log in</div></div></div>
-      </div>
-    </section>`;
+    return section("account", "Account", `<div class="card lk-card lk-card--flush">
+        <form class="lk-setrow lk-setrow--stack" data-account-form novalidate>
+          ${L.field({ id: "acc-slug", label: "Page address", value: accDraft.slug, prefix: "linkee.bio/", attrs: { autocapitalize: "none", spellcheck: "false" }, description: "Changing it breaks links you've already shared." })}
+          <div class="lk-row" style="justify-content:flex-end" data-acc-actions hidden>${btn({ label: "Save address", variant: "primary", size: "sm", type: "submit" })}</div>
+        </form>
+        ${row(`Page is ${live ? "public" : "hidden"}`, live ? "Anyone with your link can see it." : "Visitors see “This page isn't available”. Your links and stats are kept.", L.switch({ id: "published", checked: live, aria: "Page is public", action: "published" }))}
+        ${row("Email", `${esc(s.user.email)} · used to log in`)}
+      </div>`);
   }
   function connectionsHTML(s) {
     const limit = L.PLANS[s.user.plan].maxAccounts;
@@ -32,45 +25,39 @@
       const ig = a.provider === "INSTAGRAM";
       const ok = a.status === "CONNECTED";
       return `<div class="lk-conn" data-acct="${a.id}"><span class="lk-conn__logo ${ig ? "lk-net-ig" : "lk-net-fb"}">${icon(ig ? "logo-instagram" : "logo-facebook")}</span>
-        <div style="min-width:0"><div class="lk-row" style="gap:8px"><span style="font-weight:500;font-size:14px" class="lk-ellipsis">${ig ? "@" + esc(a.handle) : esc(a.name)}</span>${ok ? L.chip("Connected", "success", { dot: true }) : L.chip("Needs reconnect", "warning", { dot: true })}</div>
-        <div class="lk-xs lk-muted" style="margin-top:2px">${ig ? "Instagram · comments, replies and posting" : "Facebook Page · posting"} · ${esc(a.connectedAt)}</div></div>
-        <div class="lk-row">${ok ? "" : btn({ label: "Reconnect", variant: "primary", size: "sm", action: "reconnect" })}${btn({ label: `Options for ${ig ? a.handle : a.name}`, iconOnly: true, icon: "ellipsis", variant: "ghost", size: "sm", action: "acct-menu", attrs: { "aria-haspopup": "menu" } })}</div></div>`;
+        <div style="min-width:0"><div class="lk-ellipsis" style="font-weight:500;font-size:14px">${ig ? "@" + esc(a.handle) : esc(a.name)}</div>
+        <div class="lk-xs ${ok ? "lk-muted" : "lk-warn-text"}" style="margin-top:2px">${ok ? `${ig ? "Instagram · comments and posting" : "Facebook Page · posting"}` : "Needs reconnecting"}</div></div>
+        <div class="lk-conn__actions">${ok ? "" : btn({ label: "Reconnect", variant: "primary", size: "sm", action: "reconnect" })}${btn({ label: "Disconnect", variant: "ghost", size: "sm", action: "disconnect", attrs: { "aria-label": `Disconnect ${ig ? "@" + a.handle : a.name}` } })}</div></div>`;
     }).join("");
-    return `<section id="connections" aria-labelledby="connections-title">${sectionHead("connections", "Connections", "Accounts Linkee can read comments from and publish to.")}
-      <div class="card lk-card lk-card--flush">${rows || `<div class="lk-setrow"><div><div class="lk-setrow__title">No accounts yet</div><div class="lk-setrow__desc">Connect Instagram for your Inbox, and Instagram or a Facebook Page to publish.</div></div></div>`}
-        <div class="lk-setrow" style="background:var(--background)"><div class="lk-setrow__desc" style="margin:0">${s.accounts.length} of ${limit} accounts on ${L.PLANS[s.user.plan].label}</div><div class="lk-row lk-row--wrap">${btn({ label: "Instagram", icon: "plus", variant: "tertiary", size: "sm", action: "connect-ig" })}${btn({ label: "Facebook Page", icon: "plus", variant: "tertiary", size: "sm", action: "connect-fb" })}</div></div></div>
-    </section>`;
+    const add = `<div class="lk-conn-add">${btn({ label: "Instagram", icon: "logo-instagram", variant: "tertiary", size: "sm", action: "connect-ig", attrs: { "aria-label": "Connect Instagram" } })}${btn({ label: "Facebook Page", icon: "logo-facebook", variant: "tertiary", size: "sm", action: "connect-fb", attrs: { "aria-label": "Connect a Facebook Page" } })}</div>`;
+    return section("connections", "Connections", `<div class="card lk-card lk-card--flush">${rows || row("No accounts yet", "Connect Instagram for your Inbox, and Instagram or a Facebook Page to publish.")}</div>
+      <p class="lk-xs lk-muted" style="margin:8px 0 0">${s.accounts.length} of ${limit} accounts on ${L.PLANS[s.user.plan].label}</p>`, add);
   }
   function aiHTML(s) {
-    const head = sectionHead("ai", "AI replies", "How suggested replies sound, and when Linkee may answer for you.");
     if (!L.isPro())
-      return `<section id="ai" aria-labelledby="ai-title">${head}<div class="card lk-card"><div class="lk-planbox"><div><div class="lk-row" style="gap:8px"><span class="lk-setrow__title">Reply faster with AI</span>${L.chip("Pro", "accent")}</div><p class="lk-setrow__desc">Get a suggested reply in your tone for any comment, and let Linkee answer simple, friendly comments for you.</p></div>${btn({ label: "Upgrade", variant: "primary", size: "sm", action: "upgrade" })}</div></div></section>`;
+      return section("ai", "AI replies", `<div class="card lk-card lk-card--flush">${row("Reply faster with AI", "A suggested reply in your tone for any comment, and careful auto-reply for simple ones. Included in Pro.", btn({ label: "Upgrade", variant: "primary", size: "sm", action: "upgrade" }))}</div>`);
     const a = aiDraft;
     const p = L.PLANS.PRO;
     const igAcct = s.accounts.find((x) => x.provider === "INSTAGRAM");
     const meter = (label, used, max) => `<div class="lk-meter"><div class="lk-row lk-row--between lk-small"><span>${label}</span><span class="lk-num lk-muted">${used} / ${max}</span></div><div class="lk-meter__track" role="progressbar" aria-label="${label}" aria-valuenow="${used}" aria-valuemax="${max}"><div class="lk-meter__fill" style="width:${(used / max) * 100}%"></div></div></div>`;
-    return `<section id="ai" aria-labelledby="ai-title">${head}
-      <div class="card lk-card lk-card--flush" style="margin-bottom:12px">
-        <div class="lk-setrow"><div><div class="lk-setrow__title">Auto-reply${igAcct ? ` for @${esc(igAcct.handle)}` : ""}</div><div class="lk-setrow__desc">${a.autoReply ? "On. Linkee answers simple comments using your settings below." : "Off. Nothing is posted unless you press Send."}</div></div>
-          ${L.switch({ id: "auto", checked: a.autoReply, aria: "Auto-reply", action: "auto", disabled: !igAcct || igAcct.status !== "CONNECTED" })}</div>
-        <div class="lk-setrow" style="display:block"><div class="lk-usage">${meter("Suggestions today", s.ai.usage.suggestions, p.suggestionsPerDay)}${meter("Auto-replies today", s.ai.usage.autoReplies, p.autoRepliesPerDay)}</div><p class="lk-xs lk-muted" style="margin:10px 0 0">Limits reset at midnight.</p></div>
+    const toneDesc = L.TONES.find((t) => t.id === a.tone).description;
+    return section("ai", "AI replies", `<div class="card lk-card lk-card--flush" style="margin-bottom:12px">
+        ${row("Auto-reply", a.autoReply ? "On. Linkee answers simple comments in your tone." : "Off. Nothing is posted unless you press Send.", L.switch({ id: "auto", checked: a.autoReply, aria: "Auto-reply", action: "auto", disabled: !igAcct || igAcct.status !== "CONNECTED" }))}
+        <div class="lk-setrow" style="display:block"><div class="lk-usage">${meter("Suggestions today", s.ai.usage.suggestions, p.suggestionsPerDay)}${meter("Auto-replies today", s.ai.usage.autoReplies, p.autoRepliesPerDay)}</div></div>
       </div>
       <form class="card lk-card" data-ai-form novalidate>
-        <div class="lk-field"><span class="label" id="tone-label">Tone</span><div class="lk-tones" role="radiogroup" aria-labelledby="tone-label">${L.TONES.map((t) => `<button type="button" class="lk-tone" role="radio" aria-checked="${a.tone === t.id}" data-tone="${t.id}"><span class="lk-tone__title">${t.label}<span class="lk-tone__radio"></span></span><span class="lk-tone__desc">${t.description}</span></button>`).join("")}</div></div>
+        <div class="lk-field"><span class="label">Tone</span>${L.seg("tone", L.TONES, a.tone, { label: "Tone", full: true })}<span class="description" data-tone-desc>${toneDesc}</span></div>
         <div class="lk-field"><label class="label" for="ai-lang">Reply language</label><select class="input input--secondary" id="ai-lang">${L.LANGUAGES.map(([v, l]) => `<option value="${v}" ${a.language === v ? "selected" : ""}>${l}</option>`).join("")}</select></div>
-        ${L.field({ id: "ai-brand", label: "About you", value: a.brandContext, multiline: true, rows: 4, max: L.LIMITS.brandMax, placeholder: "What you make, when drops happen, how shipping and bookings work…", description: "Facts replies can use. Always read a suggestion before you send it." })}
+        ${L.field({ id: "ai-brand", label: "About you", value: a.brandContext, multiline: true, rows: 4, max: L.LIMITS.brandMax, placeholder: "What you make, when drops happen, how shipping and bookings work…", description: "Facts replies can use." })}
         <div class="lk-field"><label class="label" for="ai-skip">Words to skip</label><div class="lk-tags" data-tags>${a.skipWords.map((w, i) => `<span class="lk-tag-chip">${esc(w)}<button type="button" data-untag="${i}" aria-label="Remove ${esc(w)}">${icon("xmark")}</button></span>`).join("")}<input id="ai-skip" placeholder="${a.skipWords.length ? "Add another…" : "Type a word and press Enter"}" aria-describedby="skip-desc"></div><span class="description" id="skip-desc">Auto-reply leaves comments with these words for you.</span></div>
         <div class="lk-row" style="justify-content:flex-end">${btn({ label: "Save", variant: "primary", size: "sm", type: "submit", disabled: true, attrs: { "data-ai-save": "" } })}</div>
-      </form></section>`;
+      </form>`);
   }
   function planHTML() {
     const pro = L.isPro();
-    const rows = [["Link-in-bio page, themes, click counts", true, true], ["Instagram comment inbox", true, true], ["AI reply suggestions", false, "200 / day"], ["Auto-reply", false, "100 / day"], ["Post to Instagram & Facebook", false, true], ["Connected accounts", "3", "10"]];
-    const cell = (v) => (v === true ? icon("check") : v === false ? '<span class="lk-no" aria-label="Not included">—</span>' : `<span class="lk-small">${v}</span>`);
-    return `<section id="plan" aria-labelledby="plan-title">${sectionHead("plan", "Plan", "What's included in your account.")}
-      <div class="card lk-card lk-card--flush"><div class="lk-setrow"><div><div class="lk-row" style="gap:8px"><span class="lk-setrow__title">You're on ${pro ? "Pro" : "Free"}</span>${L.chip(pro ? "Pro" : "Free", pro ? "accent" : "default")}</div><div class="lk-setrow__desc">${pro ? "AI replies and Post to All are on." : "Upgrade for AI replies and Post to All."}</div></div>${pro ? btn({ label: "Contact support", variant: "tertiary", size: "sm", action: "support" }) : btn({ label: "Upgrade to Pro", variant: "primary", size: "sm", action: "upgrade" })}</div>
-      <table class="lk-compare"><thead><tr><th scope="col">Feature</th><th scope="col">Free</th><th scope="col">Pro</th></tr></thead><tbody>${rows.map(([f, a, b]) => `<tr><td>${f}</td><td>${cell(a)}</td><td>${cell(b)}</td></tr>`).join("")}</tbody></table></div>
-    </section>`;
+    return section("plan", "Plan", `<div class="card lk-card lk-card--flush">${pro
+      ? row("Linkee Pro", "AI replies, auto-reply, publishing and up to 10 accounts.", btn({ label: "Contact support", variant: "tertiary", size: "sm", action: "support" }))
+      : row("Linkee Free", "Your page, click counts and the comment inbox. Pro adds AI replies and publishing.", btn({ label: "Upgrade to Pro", variant: "primary", size: "sm", action: "upgrade" }))}</div>`);
   }
 
   L.views.settings = {
@@ -78,23 +65,15 @@
     enter(s) { aiDraft = L.clone(s.ai); accDraft = { slug: s.user.slug }; },
     render(s) {
       if (!aiDraft) this.enter(s);
-      return `<div class="lk-pagehead"><div><h1 class="lk-h1">Settings</h1></div></div>
-        <div class="lk-settings"><nav class="lk-settings__nav" aria-label="Settings sections">${SECTIONS.map((x, i) => `<a href="#${x.id}" data-sec="${x.id}" ${i === 0 ? 'aria-current="true"' : ""}>${icon(x.icon)}${x.label}</a>`).join("")}</nav>
-        <div class="lk-settings__body">${accountHTML(s)}${connectionsHTML(s)}${aiHTML(s)}${planHTML()}</div></div>`;
+      return `<div class="lk-settings"><div class="lk-pagehead"><div><h1 class="lk-h1">Settings</h1></div></div>
+        ${accountHTML(s)}${connectionsHTML(s)}${aiHTML(s)}${planHTML()}</div>`;
     },
     mount(root, s, q) {
       const $ = (sel) => L.$(sel, root);
-      // Section nav: smooth scroll + scroll-spy
-      root.addEventListener("click", (e) => { const a = e.target.closest("[data-sec]"); if (a) { e.preventDefault(); L.$("#" + a.dataset.sec, root).scrollIntoView({ behavior: "smooth", block: "start" }); } });
-      const io = new IntersectionObserver((entries) => {
-        entries.forEach((en) => { if (en.isIntersecting) L.$$("[data-sec]", root).forEach((a) => a.setAttribute("aria-current", a.dataset.sec === en.target.id)); });
-      }, { rootMargin: "-20% 0px -70% 0px" });
-      SECTIONS.forEach((x) => io.observe(L.$("#" + x.id, root)));
-      L.onLeave(() => io.disconnect());
       if (q.get("section")) setTimeout(() => L.$("#" + q.get("section"), root)?.scrollIntoView({ block: "start" }), 30);
 
-      // Account form
-      const accSave = () => { $("[data-acc-save]").disabled = accDraft.slug === s.user.slug; };
+      // Account form: "Save address" appears only once the address changes.
+      const accSave = () => { $("[data-acc-actions]").hidden = accDraft.slug === s.user.slug; };
       root.addEventListener("input", (e) => {
         const t = e.target;
         if (t.id === "acc-slug") {
@@ -134,9 +113,13 @@
         L.toast("AI settings saved", { description: "New suggestions will use them.", tone: "success" });
       });
 
+      L.wireSeg(root, (name, v) => {
+        if (name !== "tone") return;
+        aiDraft.tone = v;
+        $("[data-tone-desc]").textContent = L.TONES.find((t) => t.id === v).description;
+        aiDirty();
+      });
       root.addEventListener("click", (e) => {
-        const tone = e.target.closest("[data-tone]");
-        if (tone) { aiDraft.tone = tone.dataset.tone; L.$$("[data-tone]", root).forEach((t) => t.setAttribute("aria-checked", t === tone)); return aiDirty(); }
         const untag = e.target.closest("[data-untag]");
         if (untag) { aiDraft.skipWords.splice(Number(untag.dataset.untag), 1); paintTags(); return $("#ai-skip").focus(); }
         const a = e.target.closest("[data-action]");
@@ -153,13 +136,9 @@
           case "connect-ig": return L.connectFlow("INSTAGRAM");
           case "connect-fb": return L.connectFlow("FACEBOOK");
           case "reconnect": return L.connectFlow(acct.provider, { reconnect: true });
+          case "disconnect": return disconnect(acct);
           case "upgrade": return L.upgradeModal("AI replies");
           case "support": return L.copy("hello@linkee.bio", "Support email copied");
-          case "acct-menu": return L.menu(a, [
-            { label: "Reconnect", icon: "arrows-rotate-right", onClick: () => L.connectFlow(acct.provider, { reconnect: true }) },
-            { sep: true },
-            { label: "Disconnect", icon: "trash-bin", danger: true, onClick: () => disconnect(acct) },
-          ]);
           case "auto": {
             if (a.getAttribute("aria-disabled") === "true") return L.toast("Reconnect Instagram first", { tone: "warning" });
             if (s.ai.autoReply) { s.ai.autoReply = aiDraft.autoReply = false; L.render(); return L.toast("Auto-reply is off", { description: "Nothing is posted unless you press Send." }); }
@@ -186,7 +165,7 @@
             await L.pending(b, "Disconnecting…", () => L.sleep(600));
             s.accounts = s.accounts.filter((x) => x !== acct);
             s.draft.destinations = s.draft.destinations.filter((x) => x !== acct.id);
-            if (ig) { s.ai.autoReply = false; aiDraft.autoReply = false; s.comments = []; }
+            if (ig) { s.ai.autoReply = false; aiDraft.autoReply = false; s.convos = []; }
             L.render();
             L.toast(`${ig ? "Instagram" : "Facebook Page"} disconnected`);
           } }],

@@ -2,7 +2,7 @@
 (function () {
   const L = window.L;
   const { esc, icon, btn } = L;
-  const STORE = "linkee-ux-preview-v2";
+  const STORE = "linkee-ux-preview-v6";
 
   // ── State (kept for the browser session so reloads don't lose the review) ─
   try { L.state = JSON.parse(sessionStorage.getItem(STORE)); } catch { L.state = null; }
@@ -15,7 +15,6 @@
   const NAV = [
     { id: "page", label: "My Page", icon: "person", href: "#/app/page" },
     { id: "inbox", label: "Inbox", icon: "comments", href: "#/app/inbox" },
-    { id: "post", label: "Publish", icon: "paper-plane", href: "#/app/post" },
     { id: "settings", label: "Settings", icon: "gear", href: "#/app/settings" },
   ];
   // `fresh` re-runs the view's enter() hook even when the route is unchanged (state was replaced).
@@ -34,6 +33,8 @@
     if (!a) return { view: "landing" };
     if (a === "signup" || a === "login") return { view: a };
     if (a === "welcome") return { view: "welcome" };
+    if (L.LEGAL_DOCS.includes(a)) return { view: "legal", param: a };
+    if (a === "app" && b === "post") return { redirect: "#/app/inbox?new=1" }; // Publishing now lives in the Inbox
     if (a === "app") return { view: NAV.some((n) => n.id === b) ? b : "page", shell: true };
     return { view: "public", param: decodeURIComponent(a).toLowerCase() };
   }
@@ -43,6 +44,7 @@
     leaveFns.forEach((f) => f()); leaveFns = [];
     const route = parse();
     const r = resolve(route);
+    if (r.redirect) { lastKey = null; return location.replace(r.redirect); }
     const view = L.views[r.view];
     const s = L.state;
     if ((r.shell || view.guard === "auth") && !s.signedIn) {
@@ -69,20 +71,19 @@
   addEventListener("hashchange", L.render);
 
   // ── App shell ─────────────────────────────────────────────────────────────
-  L.newCount = () => L.state.comments.filter((c) => c.status === "NEW").length;
+  L.newCount = () => L.state.convos.filter((c) => c.status === "TODO").length;
   function shell(active, inner) {
     const s = L.state;
     const count = s.accounts.some((a) => a.provider === "INSTAGRAM") ? L.newCount() : 0;
     const badge = (n) => (n ? `<span class="lk-nav__badge" data-inbox-badge aria-label="${n} to reply">${n}</span>` : `<span data-inbox-badge hidden></span>`);
     const items = (cls) => NAV.map((n) => `<a class="${cls}" href="${n.href}" ${n.id === active ? 'aria-current="page"' : ""}>${icon(n.icon)}<span>${n.label}</span>${n.id === "inbox" ? badge(count) : ""}</a>`).join("");
-    const url = `linkee.bio/${s.user.slug}`;
+    // The page address lives on My Page (with Copy) — the top bar only navigates.
     return `<div class="lk-view">
       <header class="lk-topbar"><div class="lk-topbar__inner">
         <a class="lk-logo" href="#/app/page" aria-label="Linkee — My Page"><span class="lk-logo__mark">L</span><span>Linkee</span></a>
         <nav class="lk-nav" aria-label="Main">${items("lk-nav__item")}</nav>
         <div class="lk-topbar__end">
-          <button type="button" class="lk-urlpill" data-shell="copy" aria-label="Copy your page link ${esc(url)}"><span class="lk-urlpill__text">${esc(url)}</span><span class="lk-urlpill__copy">${icon("copy")}</span></button>
-          <button type="button" class="lk-avatar-btn" data-shell="menu" aria-haspopup="menu" aria-expanded="false" aria-label="Account menu">${L.avatar(s.user.name || "You", { size: 32, img: s.page.avatar })}</button>
+          <button type="button" class="lk-avatar-btn" data-shell="menu" aria-haspopup="menu" aria-expanded="false" aria-label="Account menu">${L.avatar(s.user.name || "You", { size: 32, img: s.saved.avatar })}</button>
         </div>
       </div></header>
       <main id="main" class="lk-main" data-view-root>${inner}</main>
@@ -94,15 +95,10 @@
       const a = e.target.closest("[data-shell]");
       if (!a) return;
       const s = L.state;
-      if (a.dataset.shell === "copy") { s.setup.copied = true; L.copy(`https://linkee.bio/${s.user.slug}`); L.refreshSetup?.(); }
       if (a.dataset.shell === "menu")
         L.menu(a, [
-          { label: "View my page", icon: "arrow-up-right-from-square", onClick: () => L.go(`#/${s.user.slug}`) },
-          { label: "Copy page link", icon: "copy", onClick: () => { s.setup.copied = true; L.copy(`https://linkee.bio/${s.user.slug}`); L.refreshSetup?.(); } },
-          { label: "Settings", icon: "gear", onClick: () => L.go("#/app/settings") },
-          { sep: true },
           { label: "Log out", icon: "arrow-right-from-square", onClick: () => { s.signedIn = false; L.go("#/"); L.toast("You're logged out"); } },
-        ], { header: `<div class="lk-row">${L.avatar(s.user.name || "You", { size: 36, img: s.page.avatar })}<div class="lk-grow"><div class="lk-ellipsis" style="font-weight:500;font-size:14px">${esc(s.user.name)}</div><div class="lk-ellipsis lk-xs lk-muted">${esc(s.user.email)}</div></div>${L.chip(L.PLANS[s.user.plan].label, s.user.plan === "PRO" ? "accent" : "default")}</div>` });
+        ], { header: `<div class="lk-row">${L.avatar(s.user.name || "You", { size: 36, img: s.saved.avatar })}<div class="lk-grow"><div class="lk-ellipsis" style="font-weight:500;font-size:14px">${esc(s.user.name)}</div><div class="lk-ellipsis lk-xs lk-muted">${esc(s.user.email)}</div></div>${L.chip(L.PLANS[s.user.plan].label, s.user.plan === "PRO" ? "accent" : "default")}</div>` });
     });
   }
   L.updateInboxBadge = () => {
@@ -154,7 +150,7 @@
           if (reconnect) s.accounts.forEach((a) => { if (a.provider === provider) a.status = "CONNECTED"; });
           else if (ig) {
             s.accounts.push({ id: "ig" + L.uid(), provider, name: s.user.name || "You", handle: (s.user.slug || "you") + ".studio", status: "CONNECTED", connectedAt: "Connected just now" });
-            if (!s.comments.length) s.comments = demoComments();
+            if (!s.convos.length) seedInbox(s);
           } else {
             // Each Facebook Page becomes its own connection (as in production).
             r.pages.forEach((p) => { if (!s.accounts.some((a) => a.name === p.name)) s.accounts.push({ id: "fb" + L.uid(), provider, name: p.name, handle: "Facebook Page", status: "CONNECTED", connectedAt: "Connected just now" }); });
@@ -167,35 +163,71 @@
       }],
     });
   };
-  function demoComments() {
-    return [
-      { id: "n1", user: "jules.k", text: "Love this! Where can I buy one?", post: "p2", age: "6m", status: "NEW", unread: true },
-      { id: "n2", user: "andrea_m", text: "Such a calm feed, made my morning ✨", post: "p3", age: "25m", status: "NEW", unread: true },
+  // A brand-new account's latest Instagram post and its first two comments.
+  function seedInbox(s) {
+    const igId = s.accounts.find((a) => a.provider === "INSTAGRAM").id;
+    if (!s.history.some((p) => p.id === "n-p1")) s.history.push({ id: "n-p1", art: "bowl", caption: "First batch of bowls out of the kiln.", when: "2 days ago", targets: [{ account: igId, status: "PUBLISHED" }] });
+    s.convos = [
+      L.makeConvo("n1", "jules.k", "n-p1", [{ type: "COMMENT", text: "Love this! Where can I buy one?", age: "6m" }], { unread: true }),
+      L.makeConvo("n2", "andrea_m", "n-p1", [{ type: "COMMENT", text: "Such a calm feed, made my morning ✨", age: "25m" }], { unread: true }),
     ];
   }
 
   // ── Review panel (prototype tooling, visually distinct from product UI) ───
+  // One small dashed button keeps tooling out of the product's way; the panel holds everything else.
   const SCREENS = [
     ["Landing", "#/"], ["Sign up", "#/signup"], ["Log in", "#/login"], ["Onboarding", "#/welcome"],
-    ["My Page", "#/app/page"], ["Inbox", "#/app/inbox"], ["Publish", "#/app/post"], ["Settings", "#/app/settings"],
+    ["My Page", "#/app/page"], ["Inbox", "#/app/inbox"], ["New post", "#/app/inbox?new=1"], ["Settings", "#/app/settings"],
     ["Public page", null], ["Unclaimed page", "#/newcreator"],
   ];
   let reviewOpen = false;
+  // Audience simulator: stands in for Instagram's webhook so reviewers can see comments arrive,
+  // get classified and reopen handled conversations without a backend.
+  const sim = { from: "new", post: "p1", text: "Is this still available?" };
+  const NEW_PEOPLE = ["noah.makes", "ava.lin", "kenji_t", "sofia.clay", "liam.r", "zoe.paints", "ines.k", "omar.studio"];
+  const igPosts = (s) => s.history.filter((p) => p.targets.some((t) => t.status === "PUBLISHED" && s.accounts.find((a) => a.id === t.account)?.provider === "INSTAGRAM"));
+  L.simulateComment = function ({ from = sim.from, post = sim.post, text = sim.text } = {}) {
+    const s = L.state;
+    const known = s.convos.find((c) => c.user === from);
+    const user = from === "new" || from === "new-closed" ? NEW_PEOPLE.find((u) => !s.convos.some((c) => c.user === u)) || "guest" + L.uid().slice(0, 3) : from;
+    const c = L.engage.receive(s, { user, post, text, dm: from === "new-closed" ? false : known ? known.dm : true });
+    L.toast(`New comment from ${user}`, { description: `“${text}”`, duration: 3200, action: { label: "Open", onClick: () => {
+      Object.assign(s.inbox, { view: "post", post: c.post, cat: "ALL", active: c.id });
+      c.unread = false;
+      L.go("#/app/inbox", { fresh: true });
+    } } });
+    return c;
+  };
+  function simHTML(s) {
+    const ig = s.accounts.find((a) => a.provider === "INSTAGRAM");
+    if (!ig || !s.signedIn) return "";
+    if (ig.status !== "CONNECTED") return `<div><h4>Simulate a comment</h4><p class="lk-xs lk-muted" style="margin:0">Reconnect Instagram first — Linkee can't receive comments while the connection is expired.</p></div>`;
+    const posts = igPosts(s);
+    if (!posts.some((p) => p.id === sim.post)) sim.post = posts[0]?.id;
+    const people = [...new Set(s.convos.map((c) => c.user))];
+    const opt = (v, label, cur) => `<option value="${esc(v)}" ${v === cur ? "selected" : ""}>${esc(label)}</option>`;
+    return `<div><h4>Simulate a comment</h4><form class="lk-simform" data-sim-form>
+      <select class="lk-simform__sel" data-sim="from" aria-label="From">${opt("new", "New person", sim.from)}${opt("new-closed", "New person · messages off", sim.from)}${people.map((u) => opt(u, u, sim.from)).join("")}</select>
+      <select class="lk-simform__sel" data-sim="post" aria-label="On post">${posts.map((p) => opt(p.id, `${p.caption.slice(0, 40)}…`, sim.post)).join("")}</select>
+      <div class="lk-row" style="gap:6px"><input class="input input--secondary lk-grow" data-sim="text" value="${esc(sim.text)}" aria-label="Comment text" style="min-width:0">${btn({ label: "Comment", variant: "tertiary", size: "sm", type: "submit" })}</div>
+    </form></div>`;
+  }
   L.renderReview = function () {
     let host = L.$("#lk-review-host");
     if (!host) { host = document.createElement("div"); host.id = "lk-review-host"; document.body.appendChild(host); wireReview(host); }
     const s = L.state;
     const cur = location.hash || "#/";
-    host.innerHTML = `<div class="lk-fabs"><button type="button" class="lk-review-fab lk-actions-fab" data-r="actions" aria-keyshortcuts="Shift+?">${icon("circle-play")}<span>Actions <span class="lk-actions-fab__count">${L.CATALOG.length}</span></span></button><button type="button" class="lk-review-fab" data-r="toggle" aria-expanded="${reviewOpen}" aria-controls="lk-review">${icon("eye")}<span>Review</span></button></div>
+    host.innerHTML = `<div class="lk-fabs"><button type="button" class="lk-review-fab" data-r="toggle" aria-expanded="${reviewOpen}" aria-controls="lk-review">${icon("eye")}<span>Prototype</span></button></div>
     ${reviewOpen ? `<section class="lk-review" id="lk-review" aria-label="Prototype review controls">
       <div class="lk-row lk-row--between"><strong style="font-size:14px">Prototype controls</strong>${L.chip("Not product UI", "warning")}</div>
-      ${btn({ label: `Explore all ${L.CATALOG.length} actions`, icon: "circle-play", variant: "primary", size: "sm", full: true, attrs: { "data-r": "actions" } })}
+      ${btn({ label: `Explore all ${L.CATALOG.length} actions`, icon: "circle-play", variant: "primary", size: "sm", full: true, attrs: { "data-r": "actions", "aria-keyshortcuts": "Shift+?" } })}
       <div><h4>Scenario</h4><div class="lk-review__persona">${Object.entries(L.PERSONAS).map(([k, v]) => `<button type="button" class="lk-review__btn" data-r="persona" data-v="${k}" aria-pressed="${s.persona === k}">${v.label}<small>${v.hint}</small></button>`).join("")}</div></div>
       <div><h4>Jump to screen</h4><div class="lk-review__grid">${SCREENS.map(([label, href]) => { const h = href || `#/${s.user.slug || "maya"}`; return `<button type="button" class="lk-review__btn" data-r="go" data-v="${h}" aria-pressed="${cur.split("?")[0] === h}">${label}</button>`; }).join("")}</div></div>
       <div><h4>Simulate errors</h4><div class="lk-stack lk-stack--sm">
         ${L.switch({ id: "sim-ai", checked: s.sim.aiFails, label: "AI suggestion fails", size: "sm", action: "sim-ai" })}
         ${L.switch({ id: "sim-pub", checked: s.sim.publishFails, label: "Facebook publish fails", size: "sm", action: "sim-pub" })}
       </div></div>
+      ${simHTML(s)}
       <div class="lk-row lk-row--between"><span class="lk-xs lk-muted">Log in password “wrong” shows the error state.</span>${btn({ label: "Reset", variant: "ghost", size: "sm", icon: "arrow-rotate-left", attrs: { "data-r": "reset" } })}</div>
     </section>` : ""}`;
   };
@@ -233,6 +265,22 @@
       if (r === "sim-ai") { s.sim.aiFails = !s.sim.aiFails; L.setSwitch(b, s.sim.aiFails); }
       if (r === "sim-pub") { s.sim.publishFails = !s.sim.publishFails; L.setSwitch(b, s.sim.publishFails); }
       if (r === "reset") { sessionStorage.removeItem(STORE); L.state = L.makeState("maya"); L.go("#/", { fresh: true }); }
+    });
+    host.addEventListener("change", (e) => {
+      const k = e.target.dataset.sim;
+      if (!k) return;
+      sim[k] = e.target.value;
+      // Picking someone you already talk to picks their post, so a reply reopens the same conversation.
+      const c = k === "from" && L.state.convos.find((x) => x.user === sim.from);
+      if (c) { sim.post = c.post; L.renderReview(); }
+    });
+    host.addEventListener("input", (e) => { if (e.target.dataset.sim === "text") sim.text = e.target.value; });
+    host.addEventListener("submit", (e) => {
+      if (!e.target.matches("[data-sim-form]")) return;
+      e.preventDefault();
+      if (!sim.text.trim()) return;
+      L.simulateComment();
+      L.renderReview();
     });
     document.addEventListener("keydown", (e) => { if (e.key === "Escape" && reviewOpen && !document.querySelector(".modal__backdrop, .lk-pop")) { reviewOpen = false; L.renderReview(); } });
   }
