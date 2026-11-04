@@ -5,104 +5,80 @@
   L.views = L.views || {};
 
   // ── Landing ───────────────────────────────────────────────────────────────
-  const DEMO = () => ({
-    displayName: "Maya Rivers",
-    bio: "Ceramics, slow mornings & studio notes. New pieces every first Friday.",
-    avatar: L.AVATAR_MAYA,
-    theme: { preset: "sand", font: "serif", buttonShape: "pill", buttonFill: "solid" },
-    socials: [{ platform: "instagram", url: "x" }, { platform: "tiktok", url: "x" }, { platform: "youtube", url: "x" }, { platform: "email", url: "x" }],
-    links: [
-      { id: "d1", title: "Shop the spring collection", visible: true },
-      { id: "d2", title: "Studio notes — monthly newsletter", visible: true },
-      { id: "d3", title: "Watch: throwing a moon jar", visible: true },
-      { id: "d4", title: "Book a wheel class in Portland", visible: true },
-    ],
-  });
+  // One promise, one button, and real pages made with Linkee. The FAQ answers the rest.
+  const DEMOS = () => [
+    {
+      slug: "maya.makes",
+      page: {
+        displayName: "Maya Rivers", bio: "Ceramics, slow mornings & studio notes. New pieces every first Friday.", avatar: L.AVATAR_MAYA,
+        theme: { preset: "sand", font: "serif", buttonShape: "pill", buttonFill: "solid" },
+        socials: [{ platform: "instagram", url: "x" }, { platform: "tiktok", url: "x" }, { platform: "youtube", url: "x" }],
+        links: [["Shop the spring collection"], ["Studio notes — monthly newsletter"], ["Watch: throwing a moon jar"], ["Book a wheel class in Portland"]],
+      },
+    },
+    {
+      slug: "socalfoodie",
+      page: {
+        displayName: "SoCal Foodie", bio: "Honest food reviews · IE / SGV / OC. 159K views in 30 days.", avatar: L.portrait("SoCal Foodie"),
+        theme: { preset: "lavender", font: "rounded", buttonShape: "rounded", buttonFill: "solid" },
+        socials: [{ platform: "tiktok", url: "x" }, { platform: "instagram", url: "x" }, { platform: "youtube", url: "x" }],
+        links: [["Collabs: DM or email"], ["118K views on a collab video"], ["Package 1 · Review reel · $150"], ["Package 2 · Food showcase reel · $100"], ["Package 3 · Photos + review · $50"]],
+      },
+    },
+    {
+      slug: "kai.after.dark",
+      page: {
+        displayName: "Kai Okafor", bio: "House & disco. Friday residency at Lowlight.", avatar: L.portrait("Kai Okafor"),
+        theme: { preset: "midnight", font: "sans", buttonShape: "pill", buttonFill: "outline" },
+        socials: [{ platform: "instagram", url: "x" }, { platform: "youtube", url: "x" }],
+        links: [["New mix: Lowlight Sessions 07"], ["Tickets — Friday at Lowlight"], ["Booking inquiries"]],
+      },
+    },
+  ].map((d) => ({ ...d, page: { ...d.page, links: d.page.links.map(([title], i) => ({ id: `${d.slug}-${i}`, title, visible: true })) } }));
 
-  const claimForm = (id, value = "") => `
-    <form class="lk-claim" data-claim novalidate>
-      <label class="lk-claim__field" for="${id}"><span class="lk-claim__prefix">linkee.bio/</span><input class="lk-claim__input" id="${id}" name="slug" value="${esc(value)}" placeholder="yourname" autocomplete="off" autocapitalize="none" spellcheck="false" aria-describedby="${id}-hint"></label>
-      ${btn({ label: "Claim your page", variant: "primary", size: "lg", type: "submit", iconRight: "arrow-right" })}
-    </form>
-    <div class="lk-claim__hint" id="${id}-hint" aria-live="polite">Free forever. No credit card.</div>`;
+  const CONTACT = "hello@linkee.bio";
+  const FAQ = [
+    ["get", "How do I get my page?", `<a href="#/signup">Create your page</a> with your email — pick a username and it's live right away. Or message us on <a href="https://instagram.com/linkee.bio" target="_blank" rel="noopener">Instagram</a> and we'll help you set it up.`],
+    ["who", "Who is Linkee.bio for?", "Creators and small businesses who sell, book or share from Instagram. Your page is free. Pro ($12/month) adds AI reply drafts for your Instagram comments and posting to Instagram and Facebook at once."],
+    ["edit", "Can I change my page after it's published?", "Anytime. Tap anything on your page to edit it, then press Publish — your link never changes."],
+    ["delete", "How do I delete my data?", `Disconnect Instagram or Facebook in Settings to remove their posts and comments from Linkee right away. To delete your whole account, email <a href="mailto:${CONTACT}">${CONTACT}</a> from your account email — everything is gone within 30 days. <a href="#/data-deletion">Full details</a>.`],
+  ];
+  const FOOT_LINKS = [["Contact", `mailto:${CONTACT}`], ["Terms", "#/terms"], ["Privacy", "#/privacy"], ["Delete your data", "#/data-deletion"], ["Instagram", "https://instagram.com/linkee.bio"]];
 
-  const featureArt = {
-    page: () => `<div class="lk-row" style="gap:8px;justify-content:center">${["sand", "midnight", "lavender", "forest"].map((p) => { const t = L.THEMES.find((x) => x.id === p); return `<div class="lk-theme__swatch" style="width:58px;background:${t.background};padding:12px 8px 10px"><b style="background:${t.text}"></b><i style="background:${t.text}"></i><i style="background:${t.accent}"></i><i style="background:${t.accent}"></i></div>`; }).join("")}</div>`,
-    inbox: () => `<div class="lk-row" style="align-items:flex-start;gap:10px">${L.avatar("hannah.makes", { size: 26 })}<div class="lk-small"><strong>hannah.makes</strong> Is the moon jar still available??</div></div>
-      <div style="margin-left:36px;padding:8px 10px;border-radius:10px;background:var(--accent-soft);font-size:12px;line-height:1.45"><span class="lk-ai-note" style="margin-bottom:2px">${icon("sparkles")} Suggested reply</span><div>It is! It goes live in Friday's drop at 10am PT 🤍</div></div>`,
-    post: () => `<div class="lk-row" style="gap:12px"><img class="lk-thumb" src="${L.art("plates")}" width="56" height="56" alt=""><div class="lk-stack lk-stack--sm" style="flex:1">
-      <div class="lk-row lk-small">${L.netLogo("INSTAGRAM", 16).replace("lk-dest__net", "lk-dest__net lk-static")} Instagram <span style="margin-left:auto">${L.chip("Published", "success", { dot: true })}</span></div>
-      <div class="lk-row lk-small">${L.netLogo("FACEBOOK", 16).replace("lk-dest__net", "lk-dest__net lk-static")} Facebook Page <span style="margin-left:auto">${L.chip("Published", "success", { dot: true })}</span></div></div></div>`,
-  };
+  L.mktNav = (s) => `<header class="lk-mkt-nav" data-mkt-nav><div class="lk-mkt-nav__inner">
+    <a class="lk-logo" href="#/" aria-label="Linkee home"><span class="lk-logo__mark">L</span>Linkee.bio</a>
+    ${s.signedIn ? L.linkBtn("#/app/page", { label: "Dashboard", variant: "primary", size: "sm", cls: "lk-mkt-nav__cta" }) : L.linkBtn("#/login", { label: "Log in", variant: "primary", size: "sm", cls: "lk-mkt-nav__cta" })}
+  </div></header>`;
+  L.mktFooter = () => `<footer class="lk-footer"><div class="lk-footer__inner">
+    <a class="lk-logo" href="#/"><span class="lk-logo__mark">L</span>Linkee.bio</a>
+    <nav class="lk-footer__links" aria-label="Footer">${FOOT_LINKS.map(([t, h]) => `<a href="${h}"${h.startsWith("http") ? ' target="_blank" rel="noopener"' : ""}>${t}</a>`).join("")}</nav>
+    <span>© 2026 Linkee.bio</span>
+  </div></footer>`;
 
   L.views.landing = {
-    title: "Linkee — one link for everything you make",
+    title: "Linkee.bio — one link. All of you.",
     render(s) {
-      const cta = s.signedIn ? L.linkBtn("#/app/page", { label: "Open Linkee", variant: "primary", size: "sm" }) : `${L.linkBtn("#/login", { label: "Log in", variant: "ghost", size: "sm" })}${L.linkBtn("#/signup", { label: "Get started", variant: "primary", size: "sm" })}`;
-      return `<div class="lk-view">
-      <header class="lk-mkt-nav" data-mkt-nav><div class="lk-mkt-nav__inner">
-        <a class="lk-logo" href="#/" aria-label="Linkee home"><span class="lk-logo__mark">L</span>Linkee</a>
-        <nav class="lk-mkt-nav__links" aria-label="Sections"><a href="#features" data-scroll>Features</a><a href="#how" data-scroll>How it works</a><a href="#pricing" data-scroll>Pricing</a></nav>
-        <div class="lk-row" style="margin-left:auto">${cta}</div>
-      </div></header>
+      const demos = DEMOS();
+      return `<div class="lk-view lk-mktpage">
+      ${L.mktNav(s)}
       <main id="main" class="lk-mkt">
         <section class="lk-hero">
-          <div>
-            ${L.chip("New: AI replies for Instagram comments", "accent", { icon: "sparkles" })}
-            <h1 class="lk-hero__title">One link for everything you make.</h1>
-            <p class="lk-hero__lede">A beautiful link-in-bio page in minutes. Answer Instagram comments with replies you approve, and post to Instagram and Facebook at once.</p>
-            ${claimForm("claim-hero", L.prefill ? L.SAMPLES.claim : "")}
+          <div class="lk-hero__copy">
+            <h1 class="lk-hero__title">One link.<br>All of you.</h1>
+            ${L.linkBtn(s.signedIn ? "#/app/page" : "#/signup", { label: "Go to your page", variant: "primary", size: "lg", iconRight: "arrow-right", cls: "lk-hero__cta" })}
           </div>
-          <div class="lk-hero__stage" aria-hidden="true">
-            ${L.phone(L.bioHTML(DEMO(), { mode: "preview" }))}
-            <div class="lk-float lk-float--a">${L.avatar("hannah.makes", { size: 32 })}<div><div style="font-weight:500">hannah.makes</div><div class="lk-muted lk-xs">Is the moon jar still available??</div><div class="lk-ai-note" style="margin-top:4px">${icon("sparkles")} Reply ready to send</div></div></div>
-            <div class="lk-float lk-float--b"><div class="lk-float__icon" style="background:var(--success-soft);color:var(--success-soft-foreground)">${icon("circle-check")}</div><div><div style="font-weight:500">Posted everywhere</div><div class="lk-muted lk-xs">Instagram · Facebook Page</div></div></div>
+          <div class="lk-stage" data-stage aria-roledescription="carousel" aria-label="Pages made with Linkee">
+            <div class="lk-stage__url" aria-live="polite"><i aria-hidden="true"></i>linkee.bio/<b data-stage-url>${demos[0].slug}</b><span class="lk-stage__caret" aria-hidden="true"></span></div>
+            <div class="lk-stage__phones">${demos.map((d, i) => `<button type="button" class="lk-stage__phone" data-demo="${i}" data-pos="${i === 0 ? "center" : i === 1 ? "right" : "left"}" aria-label="Show linkee.bio/${d.slug}" tabindex="-1">${L.phone(L.bioHTML(d.page, { mode: "preview" }), "lk-phone--sm")}</button>`).join("")}</div>
+            <div class="lk-stage__dots" role="tablist" aria-label="Choose an example">${demos.map((d, i) => `<button type="button" role="tab" class="lk-stage__dot" data-demo="${i}" aria-selected="${i === 0}" aria-label="linkee.bio/${d.slug}"></button>`).join("")}</div>
           </div>
         </section>
-
-        <section class="lk-section" id="features">
-          <div class="lk-section__head"><span class="lk-eyebrow">What you get</span><h2 class="lk-section__title">Everything your bio link needs. Nothing it doesn't.</h2></div>
-          <div class="lk-features">
-            ${[["page", "A page that looks like you", "Add your links, pick one of six themes, and fine-tune fonts and buttons. See every change live as you make it."],
-               ["inbox", "Every comment in one calm inbox", "Comments from your Instagram posts land in one list. Ask AI for a reply in your tone, edit it, and send. Nothing is sent without you."],
-               ["post", "Post once, everywhere", "Write one caption, add photos or a video, and publish to Instagram and your Facebook Pages together. If one fails, retry just that one."]]
-              .map(([k, t, d]) => `<article class="card lk-card lk-feature"><div class="lk-feature__art" aria-hidden="true">${featureArt[k]()}</div><h3>${t}</h3><p>${d}</p></article>`).join("")}
-          </div>
-        </section>
-
-        <section class="lk-section" id="how">
-          <div class="lk-section__head"><span class="lk-eyebrow">How it works</span><h2 class="lk-section__title">Live in about a minute.</h2></div>
-          <div class="lk-steps">
-            <div class="lk-step"><h3>Claim your username</h3><p>Sign up with one short form. Your page is live right away at linkee.bio/you.</p></div>
-            <div class="lk-step"><h3>Make it yours</h3><p>Add links, pick a theme, and connect Instagram or a Facebook Page when you're ready.</p></div>
-            <div class="lk-step"><h3>Share and grow</h3><p>Put the link in your bio, answer comments faster, and post everywhere from one place.</p></div>
-          </div>
-        </section>
-
-        <section class="lk-section" id="pricing">
-          <div class="lk-section__head"><span class="lk-eyebrow">Pricing</span><h2 class="lk-section__title">Start free. Upgrade when you're busy.</h2></div>
-          <div class="lk-pricing">
-            <article class="card lk-card lk-plan">
-              <div><div class="lk-h3">Free</div><p class="lk-sub">Your page, forever.</p></div>
-              <div class="lk-plan__price">$0</div>
-              <ul>${["Link-in-bio page with 6 themes", "Unlimited links and social icons", "Click counts on every link", "Instagram comment inbox"].map((f) => `<li>${icon("check")}${f}</li>`).join("")}</ul>
-              ${L.linkBtn("#/signup", { label: "Create your page", variant: "tertiary", full: true })}
-            </article>
-            <article class="card lk-card lk-plan lk-plan--pro">
-              <div class="lk-row lk-row--between"><div><div class="lk-h3">Pro</div><p class="lk-sub">For creators who post every week.</p></div>${L.chip("Most popular", "accent")}</div>
-              <div class="lk-plan__price">$12<small> / month</small></div>
-              <ul>${["Everything in Free", "AI reply suggestions (200 a day)", "Careful auto-reply, off until you turn it on", "Post to Instagram and Facebook at once", "Up to 10 connected accounts"].map((f) => `<li>${icon("check")}${f}</li>`).join("")}</ul>
-              ${L.linkBtn("#/signup", { label: "Start free, upgrade anytime", variant: "primary", full: true })}
-            </article>
-          </div>
-        </section>
-
-        <section class="lk-cta-band">
-          <h2 class="lk-section__title" style="margin:0 auto;max-width:560px">Your page is one minute away.</h2>
-          <div style="display:flex;flex-direction:column;align-items:center;margin-top:8px">${claimForm("claim-foot")}</div>
+        <section class="lk-faq" aria-labelledby="faq-title">
+          <h2 class="lk-faq__title" id="faq-title">Questions, answered.</h2>
+          ${FAQ.map(([id, q, a], i) => `<details class="lk-faq__item" data-faq="${id}"${i === 0 ? " open" : ""}><summary>${q}<span class="lk-faq__icon" aria-hidden="true">${icon("plus")}</span></summary><p>${a}</p></details>`).join("")}
         </section>
       </main>
-      <footer class="lk-mkt lk-footer"><div class="lk-row lk-row--between lk-row--wrap"><a class="lk-logo" href="#/" style="font-size:15px"><span class="lk-logo__mark" style="width:22px;height:22px;font-size:12px">L</span>Linkee</a><span>© 2026 Linkee. Made for creators.</span></div></footer>
+      ${L.mktFooter()}
       </div>`;
     },
     mount(root) {
@@ -110,41 +86,83 @@
       const onScroll = () => (nav.dataset.scrolled = scrollY > 8);
       addEventListener("scroll", onScroll, { passive: true });
       L.onLeave(() => removeEventListener("scroll", onScroll));
-      L.$$("[data-scroll]", root).forEach((a) => a.addEventListener("click", (e) => { e.preventDefault(); L.$(a.getAttribute("href"), root).scrollIntoView({ behavior: "smooth" }); }));
-      L.$$("[data-claim]", root).forEach((form) => {
-        const input = L.$("input", form);
-        const hint = L.$(`#${input.id}-hint`, root);
-        const check = () => {
-          const v = input.value.trim().toLowerCase();
-          if (!v) { hint.textContent = "Free forever. No credit card."; delete hint.dataset.tone; return null; }
-          const r = L.checkSlug(v);
-          hint.dataset.tone = r.error ? "error" : "ok";
-          hint.innerHTML = `${icon(r.error ? "circle-exclamation" : "circle-check")}${esc(r.error || r.ok)}${r.suggest ? ` · <button type="button" class="lk-textlink" data-suggest="${esc(r.suggest)}">Try ${esc(r.suggest)}</button>` : ""}`;
-          return r;
-        };
-        input.addEventListener("input", () => { input.value = input.value.toLowerCase().replace(/\s/g, ""); check(); });
-        hint.addEventListener("click", (e) => { const s = e.target.closest("[data-suggest]"); if (s) { input.value = s.dataset.suggest; check(); input.focus(); } });
-        if (input.value) check();
-        form.addEventListener("submit", (e) => {
-          e.preventDefault();
-          const r = check();
-          if (!r) { input.focus(); hint.dataset.tone = "error"; hint.innerHTML = `${icon("circle-exclamation")}Type the username you'd like`; return; }
-          if (r.error) { input.focus(); return; }
-          L.go(`#/signup?u=${encodeURIComponent(input.value.trim())}`);
-        });
+
+      // Example pages: the centre one is "live"; the dots (or a side phone) bring another forward.
+      const stage = L.$("[data-stage]", root);
+      const demos = DEMOS();
+      const urlEl = L.$("[data-stage-url]", stage);
+      const phones = L.$$(".lk-stage__phone", stage), dots = L.$$(".lk-stage__dot", stage);
+      const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+      let cur = 0, typing = 0, timer = 0, paused = false;
+      const typeSlug = (slug) => {
+        clearInterval(typing);
+        if (still) return void (urlEl.textContent = slug);
+        let n = 0;
+        urlEl.textContent = "";
+        typing = setInterval(() => { urlEl.textContent = slug.slice(0, ++n); if (n >= slug.length) clearInterval(typing); }, 55);
+      };
+      const show = (i) => {
+        cur = (i + demos.length) % demos.length;
+        phones.forEach((p, k) => { const d = (k - cur + demos.length) % demos.length; p.dataset.pos = d === 0 ? "center" : d === 1 ? "right" : "left"; });
+        dots.forEach((d, k) => d.setAttribute("aria-selected", String(k === cur)));
+        typeSlug(demos[cur].slug);
+      };
+      const tick = () => { clearInterval(timer); if (!still) timer = setInterval(() => { if (!paused && !document.hidden) show(cur + 1); }, 4500); };
+      stage.addEventListener("click", (e) => {
+        const b = e.target.closest("[data-demo]");
+        if (!b) return;
+        e.preventDefault();
+        show(+b.dataset.demo);
+        tick();
       });
+      stage.addEventListener("pointerenter", () => (paused = true));
+      stage.addEventListener("pointerleave", () => (paused = false));
+      stage.addEventListener("focusin", () => (paused = true));
+      stage.addEventListener("focusout", () => (paused = false));
+      tick();
+      L.onLeave(() => { clearInterval(timer); clearInterval(typing); });
     },
   };
+
+  // ── Terms, Privacy, Data deletion (short, plain pages linked from the footer) ──
+  const LEGAL = {
+    terms: ["Terms", [
+      ["Your page", "You own what you put on your page. Don't use Linkee for anything illegal, deceptive or harmful; we may remove pages that do."],
+      ["Your accounts", "When you connect Instagram or Facebook, Linkee acts only on what you ask: reading comments on your posts, posting the replies you send and publishing the posts you create."],
+      ["Plans", "Free stays free. Pro is billed monthly and you can cancel anytime; it runs until the end of the period you paid for."],
+    ]],
+    privacy: ["Privacy", [
+      ["What we collect", "Your name, email and page content. If you connect Instagram or Facebook: your account name, your recent posts and the comments on them."],
+      ["How we use it", "To show your page, count link clicks, and let you read and answer comments. AI drafts are written from the comment and your post — nothing is posted without you, unless you turn on auto-reply."],
+      ["What we don't do", "We don't sell your data or show ads. Tokens for connected accounts are encrypted."],
+    ]],
+    "data-deletion": ["Delete your data", [
+      ["Connected accounts", "Settings → Connected accounts → Disconnect removes that account's posts and comments from Linkee right away and revokes our access."],
+      ["Your whole account", `Email <a href="mailto:${CONTACT}">${CONTACT}</a> from your account email. We delete your page, links, comments and connected accounts within 30 days and confirm by email.`],
+      ["From Instagram or Facebook", "Removing Linkee under Settings → Apps and websites on Instagram or Facebook sends us a deletion request; we handle it the same way."],
+    ]],
+  };
+  L.views.legal = {
+    render(s, q, doc) {
+      const [title, parts] = LEGAL[doc];
+      document.title = `${title} — Linkee.bio`;
+      return `<div class="lk-view lk-mktpage">${L.mktNav(s)}
+        <main id="main" class="lk-mkt lk-legal"><h1 class="lk-legal__title">${title}</h1>
+          ${parts.map(([h, p]) => `<section><h2>${h}</h2><p>${p}</p></section>`).join("")}
+          <p class="lk-muted lk-xs">Last updated November 4, 2026 · Questions? <a href="mailto:${CONTACT}">${CONTACT}</a></p>
+        </main>${L.mktFooter()}</div>`;
+    },
+  };
+  L.LEGAL_DOCS = Object.keys(LEGAL);
 
   // ── Auth shell ────────────────────────────────────────────────────────────
   const authShell = (inner, foot) => `<div class="lk-view lk-auth">
     <div class="lk-auth__top"><a class="lk-logo" href="#/"><span class="lk-logo__mark">L</span>Linkee</a></div>
     <main id="main" class="lk-auth__body">${inner}</main>
     <div class="lk-auth__foot">${foot}</div></div>`;
-  const pwField = (id, label, autocomplete, withMeter, value = "") => `<div class="lk-field" data-field="${id}"><div class="lk-row lk-row--between"><label class="label" for="${id}">${label}</label></div>
-    <div class="lk-pw"><input class="input input--secondary" type="password" id="${id}" name="${id}" value="${esc(value)}" autocomplete="${autocomplete}" ${withMeter ? 'aria-describedby="pw-desc"' : ""}>${btn({ label: "Show password", iconOnly: true, icon: "eye", variant: "ghost", size: "sm", cls: "lk-pw__toggle", attrs: { "data-pw-toggle": id } })}</div>
-    ${withMeter ? '<div class="lk-strength" data-level="0" aria-hidden="true"><span></span><span></span><span></span><span></span></div>' : ""}
-    <div class="lk-field__meta">${withMeter ? '<span class="description" id="pw-desc">At least 8 characters.</span>' : ""}</div></div>`;
+  const pwField = (id, label, autocomplete, withHint, value = "") => `<div class="lk-field" data-field="${id}"><label class="label" for="${id}">${label}</label>
+    <div class="lk-pw"><input class="input input--secondary" type="password" id="${id}" name="${id}" value="${esc(value)}" autocomplete="${autocomplete}" ${withHint ? 'aria-describedby="pw-desc"' : ""}>${btn({ label: "Show password", iconOnly: true, icon: "eye", variant: "ghost", size: "sm", cls: "lk-pw__toggle", attrs: { "data-pw-toggle": id } })}</div>
+    <div class="lk-field__meta">${withHint ? '<span class="description" id="pw-desc">At least 8 characters.</span>' : ""}</div></div>`;
   function wirePw(root) {
     L.$$("[data-pw-toggle]", root).forEach((b) => b.addEventListener("click", () => {
       const inp = L.$("#" + b.dataset.pwToggle, root);
@@ -154,16 +172,15 @@
       b.setAttribute("aria-label", show ? "Hide password" : "Show password");
     }));
   }
-  const strength = (pw) => (pw.length === 0 ? 0 : pw.length < 8 ? 1 : 1 + [/[A-Z]/.test(pw) || /[^a-zA-Z0-9]/.test(pw), /\d/.test(pw), pw.length >= 12].filter(Boolean).length);
 
   L.views.signup = {
     title: "Create your page — Linkee",
     render(s, q) {
-      return authShell(`<form class="card lk-card lk-auth__card" novalidate data-form>
+      return authShell(`<form class="lk-auth__card" novalidate data-form>
         <div><h1 class="lk-h1">Create your page</h1><p class="lk-sub">Free forever. Takes about a minute.</p></div>
         <div class="lk-stack">
-          ${L.field({ id: "slug", label: "Username", value: q.get("u") || (L.prefill ? L.SAMPLES.signup.slug : ""), prefix: "linkee.bio/", placeholder: "yourname", autocomplete: "username", attrs: { autocapitalize: "none", spellcheck: "false" }, description: "This is your page address. You can change it later." })}
-          ${L.field({ id: "name", label: "Name", value: L.prefill ? L.SAMPLES.signup.name : "", placeholder: "Maya Rivers", autocomplete: "name", description: "Shown at the top of your page." })}
+          ${L.field({ id: "slug", label: "Username", value: q.get("u") || (L.prefill ? L.SAMPLES.signup.slug : ""), prefix: "linkee.bio/", placeholder: "yourname", autocomplete: "username", attrs: { autocapitalize: "none", spellcheck: "false" } })}
+          ${L.field({ id: "name", label: "Name", value: L.prefill ? L.SAMPLES.signup.name : "", placeholder: "Maya Rivers", autocomplete: "name" })}
           ${L.field({ id: "email", label: "Email", type: "email", value: L.prefill ? L.SAMPLES.signup.email : "", placeholder: "you@example.com", autocomplete: "email" })}
           ${pwField("password", "Password", "new-password", true, L.prefill ? L.SAMPLES.signup.password : "")}
         </div>
@@ -177,14 +194,15 @@
       const slug = L.$("#slug", root), pw = L.$("#password", root);
       const checkSlug = () => {
         const r = L.checkSlug(slug.value);
-        if (!slug.value) return L.setFieldError(root, "slug", null, "This is your page address. You can change it later."), r;
+        if (!slug.value) return L.setFieldError(root, "slug", null), r;
         L.setFieldError(root, "slug", r.error, r.ok ? `<span style="color:var(--success-soft-foreground);display:inline-flex;gap:4px;align-items:center">${icon("circle-check")}${esc(r.ok)}</span>` : null);
+        if (r.suggest) L.$('[data-field="slug"] .field-error', root).insertAdjacentHTML("beforeend", ` · <button type="button" class="lk-textlink" data-suggest="${esc(r.suggest)}">Try ${esc(r.suggest)}</button>`);
         return r;
       };
+      root.addEventListener("click", (e) => { const b = e.target.closest("[data-suggest]"); if (b) { slug.value = b.dataset.suggest; checkSlug(); slug.focus(); } });
       slug.addEventListener("input", () => { slug.value = slug.value.toLowerCase().replace(/\s/g, ""); checkSlug(); });
-      pw.addEventListener("input", () => { L.$(".lk-strength", root).dataset.level = strength(pw.value); if (pw.value.length >= 8) L.setFieldError(root, "password", null, "Looks good."); });
+      pw.addEventListener("input", () => { if (pw.value.length >= 8) L.setFieldError(root, "password", null, "At least 8 characters."); });
       if (slug.value) checkSlug();
-      if (pw.value) L.$(".lk-strength", root).dataset.level = strength(pw.value);
       // With sample data in place, focus the primary action; otherwise the first empty field.
       setTimeout(() => (L.$("#name", root).value ? L.$('[type="submit"]', form) : slug.value ? L.$("#name", root) : slug).focus(), 50);
       form.addEventListener("submit", async (e) => {
@@ -222,7 +240,7 @@
   L.views.login = {
     title: "Log in — Linkee",
     render() {
-      return authShell(`<form class="card lk-card lk-auth__card" novalidate data-form>
+      return authShell(`<form class="lk-auth__card" novalidate data-form>
         <div><h1 class="lk-h1">Welcome back</h1><p class="lk-sub">Log in to edit your page and answer comments.</p></div>
         <div data-form-error></div>
         <div class="lk-stack">
@@ -269,97 +287,73 @@
     guard: "auth",
     enter(s) {
       step = 1;
-      // Prefill: a photo, a bio and a first link are ready, so every step can be clicked through.
-      if (L.prefill && s) {
-        const p = s.page, o = L.SAMPLES.onboarding;
-        if (!p.avatar) p.avatar = L.portrait(p.displayName);
-        if (!p.bio) p.bio = o.bio;
-        if (!p.links.length) p.links = [{ id: "first", title: o.title, url: o.url, visible: true, clicks: 0 }];
+      // Prefill: a first link is ready, so both steps can be clicked through.
+      if (L.prefill && s && !s.page.links.length) {
+        const o = L.SAMPLES.onboarding;
+        s.page.links = [{ id: "first", title: o.title, url: o.url, visible: true, clicks: 0 }];
       }
     },
+    // Two steps: the look, then the first link. Photo and bio are added later right on the page,
+    // whose empty spots say what to do. Finishing lands on My Page with "Your page is live".
     render(s) {
       const p = s.page;
-      const bar = [1, 2, 3].map((i) => `<span data-state="${i < step ? "done" : i === step ? "current" : "todo"}"></span>`).join("");
-      let body;
-      if (step === 1) body = `<div><span class="lk-eyebrow">Step 1 of 3</span><h1 class="lk-h1" style="margin-top:6px">Introduce yourself</h1><p class="lk-sub">This is the first thing visitors see.</p></div>
-        <div class="lk-avatar-picker"><div data-av>${L.avatar(p.displayName || "You", { size: 64, img: p.avatar })}</div><div class="lk-stack lk-stack--sm">${btn({ label: p.avatar ? "Change photo" : "Add photo", icon: "picture", variant: "tertiary", size: "sm", action: "photo" })}<span class="description">Square works best. JPG or PNG.</span></div></div>
-        ${L.field({ id: "displayName", label: "Name", value: p.displayName, max: L.LIMITS.nameMax })}
-        ${L.field({ id: "bio", label: "Short bio", value: p.bio, multiline: true, max: L.LIMITS.bioMax, placeholder: "What you make, in one line." })}`;
-      else if (step === 2) body = `<div><span class="lk-eyebrow">Step 2 of 3</span><h1 class="lk-h1" style="margin-top:6px">Pick a look</h1><p class="lk-sub">You can fine-tune colors and buttons later.</p></div>
-        ${themePicker(p.theme.preset)}
-        <div class="lk-field"><span class="label">Font</span>${L.seg("font", L.FONTS, p.theme.font, { label: "Font" })}</div>`;
-      else if (step === 3) body = `<div><span class="lk-eyebrow">Step 3 of 3</span><h1 class="lk-h1" style="margin-top:6px">Add your first link</h1><p class="lk-sub">Your shop, latest video, newsletter — whatever matters most right now.</p></div>
-        ${L.field({ id: "url", label: "Link", placeholder: "yourwebsite.com/shop", prefix: "https://", value: p.links[0]?.url || "", attrs: { inputmode: "url", autocapitalize: "none" } })}
-        ${L.field({ id: "title", label: "Title", placeholder: "Shop my latest work", value: p.links[0]?.title || "", max: L.LIMITS.linkTitleMax })}`;
-      else body = null;
-
-      if (!body) {
-        const url = `linkee.bio/${s.user.slug}`;
-        return `<div class="lk-view lk-onb"><main id="main" class="lk-onb__main"><a class="lk-logo" href="#/"><span class="lk-logo__mark">L</span>Linkee</a>
-          <div class="lk-success"><div class="lk-success__badge">${icon("circle-check", "lk-icon--xl")}</div>
-          <h1 class="lk-h1">Your page is live</h1><p class="lk-sub" style="margin:0">Put this link in your Instagram and TikTok bio so people can find everything you share.</p>
-          <div class="lk-copyfield"><span class="lk-grow lk-ellipsis" style="text-align:left">${esc(url)}</span>${btn({ label: "Copy", icon: "copy", variant: "primary", size: "sm", action: "copy" })}</div>
-          <div class="lk-row" style="margin-top:8px">${btn({ label: "View my page", icon: "arrow-up-right-from-square", variant: "tertiary", action: "view" })}${btn({ label: "Go to My Page", variant: "primary", action: "finish", iconRight: "arrow-right" })}</div></div></main>
-          <aside class="lk-onb__aside" aria-label="Preview">${L.phone(L.bioHTML(p))}</aside></div>`;
-      }
-      return `<div class="lk-view lk-onb"><main id="main" class="lk-onb__main"><div class="lk-row lk-row--between"><a class="lk-logo" href="#/"><span class="lk-logo__mark">L</span>Linkee</a>${btn({ label: "Skip setup", variant: "ghost", size: "sm", action: "skipall" })}</div>
-        <div class="lk-onb__progress" aria-label="Step ${step} of 3">${bar}</div>
+      const bar = [1, 2].map((i) => `<span data-state="${i <= step ? "done" : "todo"}"></span>`).join("");
+      const body = step === 1
+        ? `<div><span class="lk-eyebrow">Step 1 of 2</span><h1 class="lk-h1" style="margin-top:6px">Pick a look</h1><p class="lk-sub">You can change it anytime.</p></div>
+          ${themePicker(p.theme.preset)}
+          <div class="lk-field"><span class="label">Font</span>${L.seg("font", L.FONTS, p.theme.font, { label: "Font", full: true })}</div>`
+        : `<div><span class="lk-eyebrow">Step 2 of 2</span><h1 class="lk-h1" style="margin-top:6px">Add your first link</h1><p class="lk-sub">Your shop, latest video or newsletter.</p></div>
+          ${L.field({ id: "url", label: "URL", placeholder: "yourwebsite.com/shop", value: p.links[0]?.url || "", attrs: { inputmode: "url", autocapitalize: "none", spellcheck: "false" } })}
+          ${L.field({ id: "title", label: "Title", placeholder: "Shop my latest work", value: p.links[0]?.title || "", max: L.LIMITS.linkTitleMax })}`;
+      return `<div class="lk-view lk-onb"><main id="main" class="lk-onb__main"><div class="lk-row lk-row--between"><a class="lk-logo" href="#/"><span class="lk-logo__mark">L</span>Linkee</a>${btn({ label: "Skip for now", variant: "ghost", size: "sm", action: "skip" })}</div>
+        <div class="lk-onb__progress" aria-label="Step ${step} of 2">${bar}</div>
         <form class="lk-onb__form" novalidate data-form>${body}
-        <div class="lk-onb__actions">${step > 1 ? btn({ label: "Back", variant: "ghost", action: "back", icon: "arrow-left" }) : ""}<span class="lk-grow"></span>${step === 3 ? btn({ label: "Skip for now", variant: "ghost", action: "skip" }) : ""}${btn({ label: step === 3 ? "Finish" : "Continue", variant: "primary", type: "submit", iconRight: step === 3 ? null : "arrow-right" })}</div></form>
-      </main><aside class="lk-onb__aside" aria-label="Live preview">${L.phone(L.bioHTML(p))}<div class="lk-editor__caption" style="position:absolute;bottom:24px">${icon("eye")}Live preview</div></aside></div>`;
+        <div class="lk-onb__actions">${step > 1 ? btn({ label: "Back", variant: "ghost", action: "back", icon: "arrow-left" }) : ""}<span class="lk-grow"></span>${btn({ label: step === 2 ? "Finish" : "Continue", variant: "primary", type: "submit", iconRight: step === 2 ? null : "arrow-right" })}</div></form>
+      </main><aside class="lk-onb__aside" aria-label="Live preview">${L.phone(L.bioHTML(p))}</aside></div>`;
     },
     mount(root, s) {
       const p = s.page;
       const refresh = () => { const scr = L.$("[data-phone-screen]", root); if (scr) scr.innerHTML = L.bioHTML(p); };
-      const rerender = () => { L.render(); };
       root.addEventListener("input", (e) => {
         const t = e.target;
-        if (t.id === "displayName") { p.displayName = t.value; L.updateCount(root, t.id, t.value.length, L.LIMITS.nameMax); L.$("[data-av]", root).innerHTML = L.avatar(t.value || "You", { size: 64, img: p.avatar }); }
-        if (t.id === "bio") { p.bio = t.value; L.updateCount(root, t.id, t.value.length, L.LIMITS.bioMax); }
-        if (t.id === "url" || t.id === "title") {
-          const url = L.$("#url", root).value, titleEl = L.$("#title", root);
-          if (t.id === "url" && !titleEl.dataset.touched) { const n = L.normalizeUrl(url); titleEl.value = n.url ? L.titleFromUrl(n.url) : ""; }
-          if (t.id === "title") titleEl.dataset.touched = "1";
-          if (t.id === "url") L.setFieldError(root, "url", null);
-          L.updateCount(root, "title", titleEl.value.length, L.LIMITS.linkTitleMax);
-          p.links = url.trim() ? [{ id: "first", title: titleEl.value || "My link", url, visible: true, clicks: 0 }] : [];
-        }
+        if (t.id !== "url" && t.id !== "title") return;
+        const url = L.$("#url", root).value, titleEl = L.$("#title", root);
+        if (t.id === "url" && !titleEl.dataset.touched) { const n = L.normalizeUrl(url); titleEl.value = n.url ? L.titleFromUrl(n.url) : ""; }
+        if (t.id === "title") titleEl.dataset.touched = "1";
+        if (t.id === "url") L.setFieldError(root, "url", null);
+        L.updateCount(root, "title", titleEl.value.length, L.LIMITS.linkTitleMax);
+        p.links = url.trim() ? [{ id: "first", title: titleEl.value || "My link", url, visible: true, clicks: 0 }] : [];
         refresh();
       });
       L.wireSeg(root, (name, v) => { p.theme[name] = v; refresh(); });
-      root.addEventListener("click", async (e) => {
+      root.addEventListener("click", (e) => {
         const th = e.target.closest("[data-theme]");
-        if (th) { p.theme.preset = th.dataset.theme; L.$$("[data-theme]", root).forEach((x) => x.setAttribute("aria-checked", x === th)); s.setup.themed = true; refresh(); return; }
+        if (th) { p.theme.preset = th.dataset.theme; L.$$("[data-theme]", root).forEach((x) => x.setAttribute("aria-checked", x === th)); refresh(); return; }
         const a = e.target.closest("[data-action]")?.dataset.action;
-        if (a === "photo") { p.avatar = L.portrait(p.displayName); rerender(); }
-        if (a === "back") { step--; rerender(); }
-        if (a === "skip") { p.links = []; step = 4; finishOnboarding(s); rerender(); }
-        if (a === "skipall") { finishOnboarding(s); step = 1; L.go("#/app/page"); }
-        if (a === "copy") { s.setup.copied = true; L.copy(`https://linkee.bio/${s.user.slug}`); }
-        if (a === "view") L.go(`#/${s.user.slug}`);
-        if (a === "finish") { step = 1; L.go("#/app/page"); }
+        if (a === "back") { step--; L.render(); }
+        // Skipping keeps the look you picked; a link you didn't confirm isn't published.
+        if (a === "skip") finish(s, { keepLink: false });
       });
-      L.$("[data-form]", root)?.addEventListener("submit", (e) => {
+      L.$("[data-form]", root).addEventListener("submit", (e) => {
         e.preventDefault();
-        if (step === 1 && !p.displayName.trim()) { L.setFieldError(root, "displayName", "Add the name you want on your page"); return L.$("#displayName", root).focus(); }
-        if (step === 3) {
-          const url = L.$("#url", root).value, title = L.$("#title", root).value.trim();
-          if (url.trim()) {
-            const n = L.normalizeUrl(url);
-            if (n.error) { L.setFieldError(root, "url", n.error); return L.$("#url", root).focus(); }
-            p.links = [{ id: "first", title: title || L.titleFromUrl(n.url), url: n.url, visible: true, clicks: 0 }];
-          } else p.links = [];
-        }
-        if (step === 3) { finishOnboarding(s); }
-        step++;
-        rerender();
+        if (step === 1) { step = 2; return L.render(); }
+        const url = L.$("#url", root).value, title = L.$("#title", root).value.trim();
+        if (url.trim()) {
+          const n = L.normalizeUrl(url);
+          if (n.error) { L.setFieldError(root, "url", n.error); return L.$("#url", root).focus(); }
+          p.links = [{ id: "first", title: title || L.titleFromUrl(n.url), url: n.url, visible: true, clicks: 0 }];
+        } else p.links = [];
+        finish(s);
       });
-      L.$("#displayName, #url", root)?.focus();
+      (L.$("#url", root) || L.$('[data-theme][aria-checked="true"]', root))?.focus();
     },
   };
-  function finishOnboarding(s) {
+  function finish(s, { keepLink = true } = {}) {
+    if (!keepLink) s.page.links = [];
     s.saved = L.clone(s.page);
-    s.setup.dismissed = false;
+    s.setup.welcome = true;
+    step = 1;
+    L.go("#/app/page");
   }
   function themePicker(current) {
     return `<div class="lk-themes" role="radiogroup" aria-label="Theme">${L.THEMES.map((t) => `<button type="button" class="lk-theme" role="radio" aria-checked="${t.id === current}" data-theme="${t.id}"><span class="lk-theme__swatch" style="background:${t.background}"><b style="background:${t.text}"></b><i style="background:${t.text}"></i><i style="background:${t.accent}"></i><i style="background:${t.accent}"></i><i style="background:${t.accent}"></i></span>${t.label}</button>`).join("")}</div>`;

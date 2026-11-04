@@ -56,7 +56,7 @@
     PRO: { label: "Pro", ai: true, publishing: true, suggestionsPerDay: 200, autoRepliesPerDay: 100, maxAccounts: 10 },
   };
   L.LIMITS = { slugMax: 30, nameMax: 60, bioMax: 160, linkTitleMax: 80, maxLinks: 50, maxSocials: 12, brandMax: 500, captionIG: 2200, captionFB: 63206, maxMedia: 10 };
-  L.RESERVED = ["admin", "api", "app", "dashboard", "login", "signup", "settings", "go", "media", "help", "about", "pricing", "linkee"];
+  L.RESERVED = ["admin", "api", "app", "dashboard", "login", "signup", "settings", "go", "media", "help", "about", "pricing", "linkee", "terms", "privacy", "data-deletion"];
   L.TAKEN = ["maya", "jordan", "alex", "studio", "shop", "sam"];
 
   // ── Generated artwork (offline, no stock photos) ──────────────────────────
@@ -110,38 +110,89 @@
     { id: "ig1", provider: "INSTAGRAM", name: "Maya Rivers", handle: "maya.makes", status: igStatus, connectedAt: "Connected Oct 2" },
     { id: "fb1", provider: "FACEBOOK", name: "Maya Rivers Ceramics", handle: "Facebook Page", status: "CONNECTED", connectedAt: "Connected Oct 2" },
   ];
-  L.IG_POSTS = {
-    p1: { art: "jar", caption: "Moon jar no. 7 — fourteen hours on the wheel, three firings, one tiny crack I've decided to love." },
-    p2: { art: "plates", caption: "Spring collection drops Friday at 10am PT. Speckled stoneware, six new glazes." },
-    p3: { art: "mugs", caption: "Studio morning. Trimming feet on the new mugs." },
-  };
-  const mayaComments = () => [
-    { id: "c1", user: "hannah.makes", text: "Is the moon jar still available?? I've been dreaming about it since last week", post: "p1", age: "4m", status: "NEW", unread: true },
-    { id: "c2", user: "theo_clay", text: "What clay body do you use for these? The speckle is gorgeous", post: "p2", age: "18m", status: "NEW", unread: true },
-    { id: "c3", user: "lucia.r", text: "Do you ship to Canada? 🇨🇦", post: "p2", age: "42m", status: "NEW", unread: true },
-    { id: "c4", user: "mo.bakes", text: "When's the next wheel class? My sister wants to join for her birthday", post: "p3", age: "1h", status: "NEW" },
-    { id: "c5", user: "danielkim", text: "this glaze 😍😍", post: "p2", age: "2h", status: "NEW" },
-    { id: "c6", user: "priya.designs", text: "The crack makes it more beautiful honestly. Kintsugi next?", post: "p1", age: "3h", status: "NEW" },
-    { id: "c7", user: "sam.ortiz", text: "Got my mug yesterday and it's perfect. Coffee tastes better already", post: "p3", age: "5h", status: "REPLIED", reply: { by: "AUTO", text: "So happy it found a good home, Sam! Enjoy every cup ☕️" } },
-    { id: "c8", user: "ella.w", text: "Will there be more of the blue glaze?", post: "p2", age: "1d", status: "REPLIED", reply: { by: "YOU", text: "Yes! A small batch of the blue is in Friday's drop 💙" } },
-    { id: "c9", user: "growth.boost.official", text: "Get 10K real followers fast 👉 boostgram.io 🚀🚀", post: "p3", age: "1d", status: "SKIPPED", skipReason: "You chose not to reply." },
+  // ── Engagement model ──────────────────────────────────────────────────────
+  // Three ideas stay separate in data, even though the Inbox shows them as one thread under a post:
+  //   event type   what happened           events[].type  COMMENT · DM_IN · REPLY · DM_OUT · AUTO_REPLY
+  //   intent       what the person wants   convo.cat      INTERESTED · QUESTION · FEEDBACK · OTHER
+  //   attention    does the creator act    convo.status   TODO · DONE
+  // A conversation is one person on one post. Comments on different posts never merge.
+  L.CATS = [
+    { id: "INTERESTED", label: "Interested", one: "Interested" },
+    { id: "QUESTION", label: "Questions", one: "Question" },
+    { id: "FEEDBACK", label: "Feedback", one: "Feedback" },
+    { id: "OTHER", label: "Other", one: "Other" },
   ];
-  L.SUGGESTIONS = {
-    c1: "It is! Moon jar no. 7 goes live in Friday's drop at 10am PT — set a reminder, it's a one-of-one 🤍",
-    c2: "Thank you! It's a speckled buff stoneware fired to cone 6. The speckle comes from the iron in the clay.",
-    c3: "We do! Canada shipping is available at checkout, usually 5–8 business days.",
-    c4: "Love that! Next wheel classes are on the booking page — Saturday mornings still have a few spots.",
-    c5: "Thank you! That one's called Oat Milk — it's in the spring collection 🤍",
-    c6: "Funny you ask — kintsugi is on my list for winter. Stay tuned!",
+  L.LIMITS.privateMessageMax = 1000; // Instagram private replies allow 1,000 characters
+  const norm = (t) => String(t || "").normalize("NFKC").toLowerCase().replace(/\s+/g, " ").trim();
+  // Rule-based stand-in for the AI classifier. Order matters: buying intent beats "it's a question".
+  const INTEREST = /\b(price|prices|pricing|how much|cost|buy|purchase|order|available|in stock|sold out|where can i (get|buy)|i want (one|it|this))\b/;
+  L.classify = (text) => {
+    const t = norm(text);
+    if (INTEREST.test(t)) return "INTERESTED";
+    if (/\?/.test(t) || /^(what|when|where|why|who|how|do|does|did|is|are|can|could|will|would|should)\b/.test(t)) return "QUESTION";
+    if (/(love|beautiful|gorgeous|perfect|amazing|stunning|obsessed|great|thank|😍|🤍|❤|✨|🔥)/u.test(t)) return "FEEDBACK";
+    return "OTHER";
   };
-  const mayaHistory = () => [
-    { id: "h1", art: "plates", caption: "Spring collection drops Friday at 10am PT. Speckled stoneware, six new glazes. #ceramics #stoneware", when: "Yesterday, 9:12 AM",
+
+  // Posts published through Linkee. Every comment belongs to one post.
+  const mayaPosts = () => [
+    { id: "p1", art: "jar", caption: "Moon jar no. 7 — fourteen hours on the wheel, three firings, one tiny crack I've decided to love. $45, link in bio.", when: "Today, 8:05 AM",
       targets: [{ account: "ig1", status: "PUBLISHED" }, { account: "fb1", status: "PUBLISHED" }] },
+    { id: "p2", art: "plates", caption: "Spring collection drops Friday at 10am PT. Speckled stoneware, six new glazes. #ceramics #stoneware", when: "Yesterday, 9:12 AM",
+      targets: [{ account: "ig1", status: "PUBLISHED" }, { account: "fb1", status: "PUBLISHED" }] },
+    { id: "p3", art: "mugs", caption: "Studio morning. Trimming feet on the new mugs.", when: "Nov 1, 7:30 AM",
+      targets: [{ account: "ig1", status: "PUBLISHED" }] },
     { id: "h2", art: "kiln", caption: "Kiln opening this Sunday! Come say hi at the studio, 2–5pm.", when: "Oct 30, 6:40 PM",
       targets: [{ account: "ig1", status: "PUBLISHED" }, { account: "fb1", status: "FAILED", error: "Facebook is limiting how often this Page can post. Try again in a few minutes." }] },
     { id: "h3", art: "tiles", caption: "Glaze test tiles, round two. Which one should make the cut?", when: "Oct 24, 11:05 AM",
       targets: [{ account: "ig1", status: "UNCONFIRMED", error: "Instagram didn't confirm this post. Check your profile before retrying so it isn't posted twice." }, { account: "fb1", status: "PUBLISHED" }] },
   ];
+  let seq = 0;
+  L.eid = () => "e" + ++seq + Math.random().toString(36).slice(2, 6);
+  /** Builds a conversation; intent comes from the classifier, exactly as for live comments. */
+  L.makeConvo = (id, user, post, events, extra = {}) => {
+    const first = events.find((e) => e.type === "COMMENT" || e.type === "DM_IN");
+    return { id, user, post, cat: L.classify(first?.text), catBy: "AUTO", status: "TODO", unread: false, dm: true, events: events.map((e) => ({ id: L.eid(), ...e })), ...extra };
+  };
+  const cm = (text, age) => ({ type: "COMMENT", text, age });
+  const mayaConvos = () => [
+    L.makeConvo("k1", "hannah.makes", "p1", [cm("Is the moon jar still available?? I've been dreaming about it since last week", "4m")], { unread: true }),
+    L.makeConvo("k2", "jen.okafor", "p1", [cm("How much is shipping to Austin?", "9m"), { type: "REPLY", text: "Flat $8 anywhere in the US, Jen 🤍", age: "6m" }], { status: "DONE" }),
+    L.makeConvo("k3", "theo_clay", "p2", [cm("What clay body do you use for these? The speckle is gorgeous", "18m")], { unread: true }),
+    L.makeConvo("k4", "marco.design", "p1", [cm("price please! also do you make these in a bigger size?", "25m")], { unread: true }),
+    L.makeConvo("k5", "lucia.r", "p2", [cm("Do you ship to Canada? 🇨🇦", "42m")], { unread: true }),
+    L.makeConvo("k6", "bea.studio", "p1", [cm("Need this in my life. How do I order?", "1h")], { dm: false }),
+    L.makeConvo("k7", "mo.bakes", "p3", [cm("When's the next wheel class? My sister wants to join for her birthday", "1h")]),
+    L.makeConvo("k8", "danielkim", "p2", [cm("this glaze 😍😍", "2h")]),
+    L.makeConvo("k9", "priya.designs", "p1", [cm("The crack makes it more beautiful honestly. Kintsugi next?", "3h")]),
+    L.makeConvo("k10", "sam.ortiz", "p3", [cm("Got my mug yesterday and it's perfect. Coffee tastes better already", "5h"), { type: "AUTO_REPLY", text: "So happy it found a good home, Sam! Enjoy every cup ☕️", age: "5h" }], { status: "DONE" }),
+    L.makeConvo("k11", "ella.w", "p2", [cm("Will there be more of the blue glaze?", "1d"), { type: "REPLY", text: "Yes! A small batch of the blue is in Friday's drop 💙", age: "1d" }], { status: "DONE" }),
+    L.makeConvo("k12", "growth.boost.official", "p3", [cm("Get 10K real followers fast 👉 boostgram.io 🚀🚀", "1d")], { status: "DONE" }),
+  ];
+  // Mock AI drafts: written from the comment, the post and About you.
+  L.SUGGESTIONS = {
+    k1: { public: "It is! Moon Jar No. 7 is $45 and you can order it from the link in my bio 🤍", private: "Hi Hannah! Moon Jar No. 7 is still available — it's $45 and ships within 3–5 days. You can order it directly from my page: linkee.bio/maya 🤍" },
+    k3: { public: "Thank you! It's a speckled buff stoneware fired to cone 6. The speckle comes from the iron in the clay.", private: "Hi Theo! Thanks for asking — it's a speckled buff stoneware fired to cone 6. The speckle comes from the iron in the clay." },
+    k4: { public: "Thanks Marco! Each moon jar is one of a kind, so sizes vary a little. I don't take custom orders, but larger jars show up in my monthly drops.", private: "Hi Marco! Each moon jar is one of a kind, so sizes vary a little. I don't take custom orders, but larger jars come up in my drops on the first Friday of each month." },
+    k5: { public: "We do! Canada shipping is available at checkout, usually 5–8 business days 🇨🇦", private: "Hi Lucia! Yes, I ship to Canada — choose it at checkout. It usually arrives in 5–8 business days." },
+    k6: { public: "Thank you, Bea! It's $45 — the order link is in my bio 🤍", private: "Hi Bea! Moon Jar No. 7 is $45. You can order it directly from my page: linkee.bio/maya" },
+    k7: { public: "Love that! Wheel classes book through the link in my bio — Saturday mornings still have a few spots.", private: "Hi Mo! Wheel classes book through linkee.bio/maya — Saturday mornings still have a few spots. Happy early birthday to your sister!" },
+    k8: { public: "Thank you! That one's called Oat Milk — it's in Friday's spring drop 🤍", private: "Hi Daniel! That glaze is Oat Milk — it's in Friday's spring drop at 10am PT." },
+    k9: { public: "Funny you ask — kintsugi is on my list for winter. Stay tuned!", private: "Hi Priya! Kintsugi is on my list for winter — I'll share it as soon as it's ready." },
+  };
+  /** Draft for a conversation. `attempt` > 0 ("Try another") moves past the scripted draft to a different one. */
+  L.suggestFor = (s, c, mode, attempt = 0) => {
+    const scripted = L.SUGGESTIONS[c.id];
+    const lastIn = [...c.events].reverse().find((e) => e.type === "COMMENT" || e.type === "DM_IN");
+    if (scripted && attempt % 2 === 0 && lastIn === c.events.find((e) => e.type === "COMMENT")) return scripted[mode];
+    const n = (c.user.split(/[._\d]/)[0] || "there").replace(/^./, (x) => x.toUpperCase());
+    const hi = mode === "private" ? `Hi ${n}! ` : "";
+    const cat = L.classify(lastIn?.text);
+    if (cat === "INTERESTED") return `${hi || "Thank you! "}You can find it through the link in my bio 🤍`;
+    if (cat === "QUESTION") return `${hi || "Great question! "}Drops open at 10am PT on the first Friday of the month, and everything is on the link in my bio.`;
+    if (cat === "FEEDBACK") return `${hi}Thank you so much${mode === "private" ? "" : `, ${n}`}! That means a lot 🤍`;
+    return `${hi || `Thanks, ${n}! `}🤍`;
+  };
 
   L.PERSONAS = {
     maya: { label: "Returning creator · Pro", hint: "Maya, busy page, Instagram + Facebook" },
@@ -155,7 +206,6 @@
   // this off while they play (they show validation on empty forms) and back on afterwards.
   L.prefill = true;
   L.SAMPLES = {
-    claim: "alex.k",
     signup: { slug: "alex.k", name: "Alex Kim", email: "alex@example.com", password: "Pottery-2026" },
     login: { email: "maya@mayarivers.studio", password: "ceramics-2026" },
     onboarding: { bio: "Plant-based recipes & weekly meal plans.", url: "youtube.com/@alexcooks", title: "YouTube" },
@@ -184,19 +234,20 @@
   };
 
   L.makeState = function (persona) {
+    const posts = mayaPosts();
     const base = {
       persona,
       signedIn: persona !== "new",
       user: { name: "Maya Rivers", email: "maya@mayarivers.studio", slug: "maya", plan: "PRO" },
       page: mayaPage(),
       accounts: mayaAccounts("CONNECTED"),
-      comments: mayaComments(),
+      convos: mayaConvos(),
       ai: { tone: "FRIENDLY", language: "auto", brandContext: "I'm Maya, a ceramicist in Portland. Shop drops are first Fridays at 10am PT. Classes book through the link in bio. Never promise custom orders.", skipWords: ["giveaway", "price?", "collab"], autoReply: true, usage: { suggestions: 34, autoReplies: 12 } },
-      history: mayaHistory(),
+      history: posts,
       draft: { destinations: ["ig1", "fb1"], media: [], caption: "" },
       linkSample: 0,
-      setup: { dismissed: true, copied: true },
-      inbox: { tab: "todo", selected: "c1" },
+      setup: { welcome: false }, // true once, right after onboarding: "Your page is live" on My Page
+      inbox: { view: "post", post: "p1", cat: "ALL", active: "k1" },
       sim: { aiFails: false, publishFails: false },
     };
     if (persona === "free") {
@@ -209,12 +260,12 @@
       base.user = { name: "", email: "", slug: "", plan: "FREE" };
       base.page = emptyPage("");
       base.accounts = [];
-      base.comments = [];
+      base.convos = [];
       base.history = [];
       base.ai = { tone: "FRIENDLY", language: "auto", brandContext: "", skipWords: [], autoReply: false, usage: { suggestions: 0, autoReplies: 0 } };
       base.draft = { destinations: [], media: [], caption: "" };
-      base.setup = { dismissed: false, copied: false, themed: false };
-      base.inbox = { tab: "todo", selected: null };
+      base.setup = { welcome: false };
+      base.inbox = { view: "post", post: null, cat: "ALL", active: null };
     }
     if (L.prefill !== false && base.accounts.length) base.draft = L.sampleDraft(base, 0);
     base.saved = JSON.parse(JSON.stringify(base.page));

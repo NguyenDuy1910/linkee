@@ -1,6 +1,6 @@
 # Local development database only:  docker compose up -d db   (then `npm run dev`)
 # Production runs on the homelab: stacks/linkee (app) + the shared stacks/postgres
-# (database `linkee`). See README.md → "Deploy (homelab)".
+# (database `linkee`).
 services:
   db:
     # Matches the existing local volume (initialized with 16); production is PG 17.

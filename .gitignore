@@ -47,3 +47,12 @@ next-env.d.ts
 
 # uploaded media (local disk volume)
 /data
+
+# editors / OS
+.vscode/
+.idea/
+*.swp
+Thumbs.db
+
+# design handoff (reference material, not source)
+/ux_preview/Linkee-UI-Handoff-*/

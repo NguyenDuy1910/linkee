@@ -41,16 +41,34 @@
     await T.wait(200);
   };
   T.set = async (sel, value) => { const el = await T.$(sel); el.value = value; el.dispatchEvent(new Event("input", { bubbles: true })); el.dispatchEvent(new Event("change", { bubbles: true })); await T.wait(250); };
-  T.key = async (key, { meta, target } = {}) => {
+  /** Leave an edited field the way a user does: the browser fires `change`, then focus moves on.
+      (Scripted typing never triggers `change` by itself.) */
+  T.commit = async (sel) => { const el = await T.$(sel); el.dispatchEvent(new Event("change", { bubbles: true })); el.blur(); await T.wait(250); };
+  T.key = async (key, { meta, alt, target } = {}) => {
     const el = target ? await T.$(target) : document.activeElement || document.body;
-    el.dispatchEvent(new KeyboardEvent("keydown", { key, metaKey: !!meta, ctrlKey: false, bubbles: true, cancelable: true }));
+    el.dispatchEvent(new KeyboardEvent("keydown", { key, metaKey: !!meta, altKey: !!alt, ctrlKey: false, bubbles: true, cancelable: true }));
     await T.wait(280);
+  };
+  /** Mouse-drag `sel` vertically until its center passes the center of `toSel`. */
+  T.drag = async (sel, toSel) => {
+    const el = await T.$(sel), to = await T.$(toSel);
+    await reveal(el); await T.wait(160);
+    const r = el.getBoundingClientRect(), t = to.getBoundingClientRect();
+    const x = r.left + r.width / 2, y = r.top + r.height / 2;
+    const dy = t.top + t.height / 2 - y + Math.sign(t.top - r.top) * 8;
+    const fire = (type, cy) => el.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, pointerId: 1, pointerType: "mouse", isPrimary: true, button: 0, buttons: type === "pointerup" ? 0 : 1, clientX: x, clientY: cy }));
+    fire("pointerdown", y);
+    for (let i = 1; i <= 14; i++) { await T.wait(45); fire("pointermove", y + (dy * i) / 14); }
+    await T.wait(300);
+    fire("pointerup", y + dy);
+    await T.wait(300);
   };
   T.submit = async (formSel) => { const f = await T.$(formSel); f.requestSubmit(); await T.wait(300); };
   T.until = async (fn, timeout = 6000) => { const end = Date.now() + timeout; while (!fn()) { alive(); if (Date.now() > end) throw new Error("Timed out waiting"); await sleep(80); } };
   /** Fresh scenario. persona: maya | free | reconnect | new (signed out) | newUser (just signed up). */
   T.scene = async (persona, route, mutate) => {
     L.closeModal(); L.closeMenu();
+    if (L.$("#lk-review")) L.$('[data-r="toggle"]').click(); // the Prototype panel never carries over between demos
     L.$(".lk-toasts").innerHTML = "";
     L.state = L.makeState(persona === "newUser" ? "new" : persona);
     if (persona === "newUser") {
@@ -164,40 +182,44 @@
     L.explorer.close();
     ensureHost();
     const me = (P = { action, mode, i: -1, auto: mode === "demo", alive: true, queue, el: null, done: false, busy: false });
+    // A stopped run must never act on the next one: every driver call checks that this run is still current.
+    const live = () => { if (P !== me || !me.alive) throw CANCEL; };
+    const t = new Proxy(T, { get: (o, k) => (typeof o[k] !== "function" || k === "byText" ? o[k] : async (...args) => { live(); const r = await o[k](...args); live(); return r; }) });
     L.prefill = mode !== "demo"; // scripted demos show validation on empty forms; "Try it yourself" keeps sample data
     host.dataset.active = "true";
     document.addEventListener("keydown", onKey, true);
     follow();
     renderCard();
     try {
-      await action.setup(T);
+      await action.setup(t);
       if (mode === "try") {
-        P.el = await T.$(action.try.target).catch(() => null);
+        me.el = await t.$(action.try.target).catch((e) => { if (e === CANCEL) throw e; return null; });
         renderCard();
-        if (action.try.done) P.poll = setInterval(() => { if (P === me && !P.tried && action.try.done()) { P.tried = true; P.el = null; renderCard(); } }, 300);
+        if (action.try.done) me.poll = setInterval(() => { if (P === me && !me.tried && action.try.done()) { me.tried = true; me.el = null; renderCard(); } }, 300);
         return;
       }
       for (let i = 0; i < action.steps.length; i++) {
-        alive();
+        live();
         const st = action.steps[i];
-        P.i = i;
-        P.el = st.target ? await T.$(st.target).catch(() => null) : null;
-        if (P.el) await reveal(P.el);
+        me.i = i;
+        me.el = st.target ? await t.$(st.target).catch((e) => { if (e === CANCEL) throw e; return null; }) : null;
+        if (me.el) await reveal(me.el);
+        live();
         renderCard();
         await gate(readTime(st.text));
-        alive();
+        live();
         if (st.run) {
-          P.busy = true; renderCard();
-          await st.run(T);
-          P.busy = false;
-          await T.wait(350);
+          me.busy = true; renderCard();
+          await st.run(t);
+          me.busy = false;
+          await t.wait(350);
         }
       }
-      P.done = true; P.el = null; P.i = action.steps.length;
+      me.done = true; me.el = null; me.i = action.steps.length;
       renderCard();
-      if (P.auto && P.queue.length) {
-        await T.wait(1600);
-        const [next, ...rest] = P.queue;
+      if (me.auto && me.queue.length) {
+        await t.wait(1600);
+        const [next, ...rest] = me.queue;
         play(next, { queue: rest });
       }
     } catch (err) {
